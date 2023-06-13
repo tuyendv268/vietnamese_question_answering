@@ -257,7 +257,7 @@ class QA_Dataset(Dataset):
         index = 0
         for context in sample["passages"]:
             if context["is_selected"] == 1:
-                assert positive_index is not None
+                assert positive_index is None
                 positive_index=index
             contexts.append(context["passage_text"])
             index+=1
