@@ -249,27 +249,29 @@ class QA_Dataset(Dataset):
         }
        
     def __getitem__(self, index):
-        try:
-            sample = json.loads(self.data[index].strip())    
-        except:
-            sample = self.data[index]      
-        finally:
-            query = sample["query"]
+        sample = self.data[index]      
+        query = sample["query"]
+        
+        contexts = []
+        positive_index = None
+        index = 0
+        for context in sample["passages"]:
+            if context["is_selected"] == 1:
+                if positive_index is not None:
+                    continue
+                positive_index=index
+            contexts.append(context["passage_text"])
+            index+=1
             
-            contexts = []
-            positive_index, count = None, 0
-            for index, context in enumerate(sample["passages"]):
-                if context["is_selected"] == 1:
-                    positive_index=index
-                    assert count == 0
-                    count += 1
-                contexts.append(context["passage_text"])
-                
-            return self._parse_sample(
-                query=query,
-                positive_index=positive_index,
-                contexts=contexts
-            )
+        if positive_index is None:
+            print("not exist positive in sample, ignore this sample")
+            return self.__getitem__(random.randint(0, self.__len__()-1))
+        
+        return self._parse_sample(
+            query=query,
+            positive_index=positive_index,
+            contexts=contexts
+        )
         
     def cross_collate_fn(self, batch):
         ids = [

@@ -32,10 +32,10 @@ device = "cpu" if not torch.cuda.is_available() else "cuda"
 
 def init_directories_and_logger(config):
     if not os.path.exists(config.path.ckpt):
-        os.mkdir(config.path.ckpt)
+        os.makedirs(config.path.ckpt)
         
     if not os.path.exists(config.path.log):
-        os.mkdir(config.path.log)
+        os.makedirs(config.path.log)
         
     current_time = datetime.now()
     current_time = current_time.strftime("%d-%m-%Y_%H:%M:%S")

@@ -39,7 +39,7 @@ def load_file(path, max_context=7):
                         continue
                     passages.append(passage)
                 count+=1
-                
+                                
             random.shuffle(passages)
                 
             if mark == 1:
