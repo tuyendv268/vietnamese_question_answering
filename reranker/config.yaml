@@ -1,0 +1,33 @@
+general:
+  batch_size: 2
+  device: cpu
+  mode: train
+  epoch: 2
+  # cross = dual
+  model_type: "cross"
+  valid_size: 0.01
+  test_size: 0.1
+  max_length: 352
+  n_worker: 1
+  save_ckpt_per_n_epoch: 1 
+  logging_per_steps: 10
+  evaluate_per_step: 10000
+  # envibert
+  plm: envibert
+  accumulation_steps: 8
+
+path: 
+  pretrained_dir: ../pretrained
+  train_data: data/val/data.data
+  test_data: data/val/data.data
+  val_data: data/val/data.data
+
+  warm_up: checkpoints/cross_1.bin
+  ckpt: outputs/checkpoints
+  log: outputs/logs
+  bm25: outputs/bm25
+  embedd_model: outputs/checkpoints/dual_0.bin
+
+data_augmentation_args:
+  augmentation_percent: 0.6
+  mask_percent: 0.05
