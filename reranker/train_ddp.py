@@ -26,7 +26,7 @@ from src.dataset import (
     QA_Dataset
     )
 
-from model import Cross_Model
+from src.model import Cross_Model
 from datetime import datetime
 from transformers import AutoTokenizer
 from transformers import AutoModel, AutoConfig
