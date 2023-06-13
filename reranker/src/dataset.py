@@ -262,11 +262,8 @@ class QA_Dataset(Dataset):
                 positive_index=index
             contexts.append(context["passage_text"])
             index+=1
-            
-        if positive_index is None:
-            print("not exist positive in sample, ignore this sample")
-            return self.__getitem__(random.randint(0, self.__len__()-1))
-        
+        assert positive_index is not None
+                    
         return self._parse_sample(
             query=query,
             positive_index=positive_index,

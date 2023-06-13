@@ -19,7 +19,7 @@ from src.dataset import (
 AUTH_TOKEN = "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"
 
 class Cross_Model(nn.Module):
-    def __init__(self,max_length=352, batch_size=16, device="cpu", model_name="xlmr"):
+    def __init__(self,max_length=384, batch_size=16, device="cpu", model_name="xlmr"):
         super(Cross_Model, self).__init__()
         self.max_length = max_length
         self.batch_size = batch_size
