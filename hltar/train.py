@@ -6,17 +6,12 @@ from tqdm import tqdm
 import numpy as np
 import json
 
-from sklearn.model_selection import train_test_split
 import torch
 from torch.utils.data import DataLoader
-from transformers import RobertaModel
-from transformers import AutoModel
-from transformers import AutoTokenizer
 from glob import glob
 
 
 from src.utils import (
-    load_data,
     optimizer_scheduler
     )
 
@@ -24,12 +19,9 @@ from src.dataset import (
     HLTAR_Dataset
     )
 
-from torchmetrics.functional import pairwise_cosine_similarity
 from src.models import HLATR
 from src.loss import HLTAR_Loss
 from datetime import datetime
-from transformers import AutoTokenizer
-from transformers import AutoModel, AutoConfig
 
 device = "cpu" if not torch.cuda.is_available() else "cuda"
 
@@ -84,7 +76,7 @@ def prepare_dataloader(config):
         num_workers=config.general.n_worker, shuffle=True, pin_memory=True, drop_last=True)
     
     test_dataset = HLTAR_Dataset(
-        data=train_df,
+        data=test_df,
         max_doc=100
     )
             
