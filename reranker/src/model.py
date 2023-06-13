@@ -13,7 +13,7 @@ from src.dataset import (
 AUTH_TOKEN = "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"
 
 class Cross_Model(nn.Module):
-    def __init__(self, model, tokenizer, max_length=352, droprate=0.2, batch_size=16, device="cpu"):
+    def __init__(self, model, tokenizer, max_length=384, droprate=0.2, batch_size=16, device="cpu"):
         super(Cross_Model, self).__init__()
         self.max_length = max_length
         self.batch_size = batch_size
