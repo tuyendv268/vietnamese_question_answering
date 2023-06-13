@@ -17,12 +17,12 @@ from transformers import AutoModel
 from transformers import AutoTokenizer
 from torch import nn
 
-from utils import (
+from src.utils import (
     load_data,
     optimizer_scheduler
     )
 
-from dataset import (
+from src.dataset import (
     QA_Dataset
     )
 
