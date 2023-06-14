@@ -5,7 +5,7 @@ import os
 from gensim.corpora import Dictionary
 from gensim.models import TfidfModel, OkapiBM25Model
 from gensim.similarities import SparseMatrixSimilarity
-from utils import norm_text
+from retriever.src.utils import norm_text
 
 class BM25:
     def load(self, path):
@@ -86,7 +86,7 @@ class BM25:
         
 
 if __name__ == "__main__":
-    from utils import norm_question, norm_text
+    from retriever.src.utils import norm_question, norm_text
     bm25_model = BM25("outputs/bm25")
     query = "mô tả về tổng công ty mobifone"
     

@@ -66,18 +66,6 @@ def load_json(path):
     
     return data
 
-# def load_data(data_dir):
-#     question_path = f"{data_dir}/questions.json"
-#     question = load_json(question_path)
-    
-#     context_path = f"{data_dir}/contexts.json"
-#     context = load_json(context_path)
-    
-#     data_path = f"{data_dir}/datas.json"
-#     data = load_json(data_path)
-    
-#     return data, question, context
-
 def load_data(path):
     with open(path, "r", encoding="utf-8") as f:
         data, passages = [], []

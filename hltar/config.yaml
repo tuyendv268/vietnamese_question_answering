@@ -12,9 +12,9 @@ general:
 
 path: 
   pretrained_dir: ../pretrained
-  train_data: data/test
-  test_data: data/test
-  val_data: data/test
+  train_data: ../data/hltar-data/test
+  test_data: ../data/hltar-data/test
+  val_data: ../data/hltar-data/test
   warm_up: checkpoints/cross_1.bin
   ckpt: outputs/checkpoints
   log: outputs/logs

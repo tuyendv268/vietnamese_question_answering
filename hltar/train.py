@@ -57,14 +57,10 @@ def init_model(config):
     return model
 
 def prepare_dataloader(config):
-    # train_df = json.load(open(config.path.train_data, "r", encoding="utf-8"))
-    # test_df = json.load(open(config.path.test_data, "r", encoding="utf-8"))
     train_df = glob(f'{config.path.train_data}/*.npy')
     val_df = glob(f'{config.path.val_data}/*.npy')
     test_df = glob(f'{config.path.test_data}/*.npy')
-    
-    # train_df, val_df = train_test_split(train_df, test_size=config.general.valid_size, random_state=42)
-    
+        
     train_dataset = HLTAR_Dataset(
         data=train_df,
         max_doc=100

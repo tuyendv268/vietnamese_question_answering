@@ -7,60 +7,6 @@ from typing import List
 
 import torch
 from torch.utils.data import Dataset
-from transformers import AutoTokenizer
-from src.utils import norm_text
-from transformers import AutoModel, AutoConfig
-
-pandarallel.initialize(nb_workers=2, progress_bar=False)
-class HLTAR_Dataset_v1(Dataset):
-    def __init__(self, data, max_doc):
-        self.data = data
-        self.max_doc = max_doc
-                    
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, index):
-        return {
-            'embedding': self.data[index]["embedding"],
-            "label": self.data[index]["label"],
-            "retrieval_rank": self.data[index]["retrieval_rank"],
-            "reranking_rank": self.data[index]["reranking_rank"],
-        }
-                
-    def collate_fn(self, batch):
-        embeddings = [torch.tensor(x["embedding"]) for x in batch]
-        labels = [torch.tensor(x["label"]) for x in batch]
-        max_len = max([len(embeddings) for x in embeddings])
-        retrieval_ranks = [torch.tensor(x["retrieval_rank"]) for x in batch]
-        reranking_ranks = [torch.tensor(x["reranking_rank"]) for x in batch]
-        
-        masks = []
-        for i in range(len(embeddings)):
-            mask = [1]*len(embeddings[i]) + [0]*(max_len-len(embeddings[i]))
-            masks.append(torch.tensor(mask))
-            if len(embeddings[i]) < max_len:
-                labels[i] = torch.cat((labels[i], torch.zeros(max_len-labels[i].shape[0])))
-            
-            retrieval_ranks[i] += 1
-            if len(retrieval_ranks[i]) < max_len:
-                retrieval_ranks[i] = torch.cat((retrieval_ranks[i], torch.zeros(max_len-retrieval_ranks[i].shape[0])))
-            
-            reranking_ranks[i] += 1
-            if len(reranking_ranks[i]) < max_len:
-                reranking_ranks[i] = torch.cat((reranking_ranks[i], torch.zeros(max_len-reranking_ranks[i].shape[0])))
-
-            if len(embeddings[i]) < max_len:
-                embeddings[i] = torch.cat((embeddings[i], torch.zeros((max_len-embeddings[i].shape[0], embeddings[i].shape[1]))))
-        
-        outputs = {
-            "embeddings": torch.stack(embeddings, dim=0),
-            "masks": torch.vstack(masks),
-            "labels":torch.stack(labels, dim=0),
-            "retrieval_ranks":torch.stack(retrieval_ranks, dim=0),
-            "reranking_ranks":torch.stack(reranking_ranks, dim=0)
-        }
-        return outputs
 
 class HLTAR_Dataset(Dataset):
     def __init__(self, data, max_doc):
