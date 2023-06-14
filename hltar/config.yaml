@@ -8,6 +8,8 @@ general:
   max_length: 384
   n_worker: 0
   save_ckpt_per_n_epoch: 1 
+  logging_per_steps: 100
+  evaluate_per_step: 1000
   accumulation_steps: 2
 
 path: 
