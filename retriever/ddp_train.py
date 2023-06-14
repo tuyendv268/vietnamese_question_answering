@@ -1,6 +1,4 @@
 import os
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
 from omegaconf import OmegaConf
 from importlib.machinery import SourceFileLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -8,13 +6,13 @@ from tqdm import tqdm
 import numpy as np
 import json
 
-from sklearn.model_selection import train_test_split
-from torch.utils.data.distributed import DistributedSampler
+from torchmetrics.functional import pairwise_cosine_similarity
 import torch
 from torch.utils.data import DataLoader
 from transformers import RobertaModel
 from transformers import AutoModel
 from transformers import AutoTokenizer
+import torch.distributed as dist
 from torch import nn
 
 from src.utils import (
@@ -26,12 +24,12 @@ from src.dataset import (
     QA_Dataset
     )
 
-from src.model import Cross_Model
+from src.model import Dual_Model
 from datetime import datetime
 from transformers import AutoTokenizer
 from transformers import AutoModel, AutoConfig
-import torch.distributed as dist
-import torch 
+
+device = "cpu" if not torch.cuda.is_available() else "cuda"
 
 def is_dist_avail_and_initialized():
     if not dist.is_available():
@@ -97,7 +95,7 @@ def init_directories_and_logger(config):
     
     log_dir = f"{config.path.log}/{current_time}"
     if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+        os.mkdir(log_dir)
         print(f"logging into {log_dir}")
     else:
         raise Exception("current log dir is exist !!!")
@@ -107,7 +105,6 @@ def init_directories_and_logger(config):
     )
     
     return writer
-
 def init_model_and_tokenizer(config):
     AUTH_TOKEN = "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"
     
@@ -122,19 +119,18 @@ def init_model_and_tokenizer(config):
             'nguyenvulebinh/vi-mrc-base', cache_dir=config.path.pretrained_dir, use_auth_token=AUTH_TOKEN)
         plm = AutoModel.from_pretrained(
             "nguyenvulebinh/vi-mrc-base", cache_dir=config.path.pretrained_dir, use_auth_token=AUTH_TOKEN)
-
-    model = Cross_Model(
+    
+    model = Dual_Model(
         max_length=config.general.max_length, 
         batch_size=config.general.batch_size,
         device=config.general.device,
-        tokenizer=tokenizer, model=plm)
+        tokenizer=tokenizer, model=plm).to(device)
     
     if os.path.exists(config.path.warm_up):
         model.load_state_dict(torch.load(config.path.warm_up, map_location="cpu"))
         print(f"load model state dict from {config.path.warm_up}")
         
     return model, tokenizer
-
 
 def prepare_dataloader(config, tokenizer):
     # train_data = load_data(config.path.train_data)
@@ -154,44 +150,37 @@ def prepare_dataloader(config, tokenizer):
     elif config.general.model_type =="dual" :
         collate_fn = train_dataset.dual_collate_fn
         
-    sampler = DistributedSampler(dataset=train_dataset, shuffle=True)
     train_loader = DataLoader(
         train_dataset, batch_size=config.general.batch_size,
         collate_fn=collate_fn,
-        sampler=sampler,
-        num_workers=config.general.n_worker, drop_last=True)
-    
+        num_workers=config.general.n_worker, shuffle=True, pin_memory=True, drop_last=True)
     
     valid_dataset = QA_Dataset(
         val_data, mode="val",
         tokenizer=tokenizer, 
         max_length=config.general.max_length)
-    sampler = DistributedSampler(dataset=valid_dataset, shuffle=False)
+    
     valid_loader = DataLoader(
         valid_dataset, batch_size=config.general.batch_size, 
-        sampler=sampler,
         collate_fn=collate_fn,
-        num_workers=0, drop_last=False)
+        num_workers=0, shuffle=False, pin_memory=True)
     
     test_dataset = QA_Dataset(
         test_data, mode="val",
         tokenizer=tokenizer, 
         max_length=config.general.max_length)
-    sampler = DistributedSampler(dataset=test_dataset, shuffle=False)
+    
     test_loader = DataLoader(
-        test_dataset, batch_size=config.general.batch_size,
-        sampler=sampler, 
+        test_dataset, batch_size=config.general.batch_size, 
         collate_fn=collate_fn, 
-        num_workers=0, drop_last=False)
+        num_workers=0, shuffle=False, pin_memory=True, drop_last=False)
     
     return train_loader, valid_loader, test_loader
+        
 
-def train(config):    
-    init_distributed()
-    if is_main_process():
-        writer = init_directories_and_logger(config)        
+def train(config):
+    writer = init_directories_and_logger(config)        
     model, tokenizer = init_model_and_tokenizer(config)
-    
     model = model.cuda()
     
     local_rank = int(os.environ['LOCAL_RANK'])
@@ -207,43 +196,45 @@ def train(config):
     optimizer, scheduler = optimizer_scheduler(model, num_train_steps)
     scaler = torch.cuda.amp.GradScaler(enabled=True)
     
-    print("start training")
+    print("### start training")
     step = 0
     for epoch in range(config.general.epoch):
         model.train()
         train_losses = []
-        
-        train_loader.sampler.set_epoch(epoch)
-        # bar = tqdm(enumerate(train_loader), total=len(train_loader), position=get_rank())
-        for _, data in enumerate(train_loader):
-            try:
-                inputs_ids = data["inputs_ids"].cuda()
-                masks = data["masks"].cuda()
-                labels = data["labels"].cuda()
-                context_masks = data["context_masks"].cuda()
+        bar = tqdm(enumerate(train_loader), total=len(train_loader))
+        for _, data in bar:
+            contexts_ids = data["context_ids"].to(device)
+            query_ids = data["query_ids"].to(device)
+            query_masks = data["query_masks"].to(device)
+            masks = data["masks"].to(device)
+            labels = data["labels"].to(device)
+            context_masks = data["context_masks"].to(device)
+            with torch.cuda.amp.autocast(dtype=torch.float16):
+                context_embeddings = model(
+                    ids=contexts_ids, 
+                    masks=masks)
                 
-                with torch.cuda.amp.autocast(dtype=torch.float16):
-                    logits, loss = model(
-                        ids=inputs_ids, 
-                        context_masks=context_masks,
-                        masks=masks, 
-                        labels=labels)
-                    
-                    loss /= config.general.accumulation_steps
-                scaler.scale(loss).backward()
-                train_losses.append(loss.item())
-            except RuntimeError as e:
-                torch.cuda.empty_cache()
-                print("Error in training: ", e)
-                continue
+                query_embeddings = model(
+                    ids=query_ids, 
+                    masks=query_masks)
+                
+                context_embeddings = context_embeddings.reshape(query_embeddings.size(0), -1, 768)
+                query_embeddings = query_embeddings.unsqueeze(1)
+                logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
+                logits = torch.cat(logits, dim=0)        
+                loss = model.loss(labels, logits, context_masks)  
+                
+                loss /= config.general.accumulation_steps
+            loss.backward()
+
+            train_losses.append(loss.item())
             
             if (step + 1) % config.general.accumulation_steps == 0:
                 scaler.step(optimizer)
                 optimizer.zero_grad()
                 scheduler.step()
                 scaler.update()
-            step += 1
-            
+                
             if is_main_process() and step % config.general.logging_per_steps == 0:
                 message = {
                     "loss":round(np.mean(np.array(train_losses)), 3),
@@ -253,74 +244,81 @@ def train(config):
                     "total":total,
                 }
                 print("log: ", message)
-            # bar.set_postfix(loss=loss.item(), epoch=epoch, id=get_rank(), lr=scheduler.get_last_lr())
-            
-            if is_main_process() and (step + 1) % config.general.evaluate_per_step == 0:
-                print("start evaluate")
-                torch.save(model.state_dict(), f"{config.path.ckpt}/{config.general.model_type}_{epoch}.bin")
                 
+            if is_main_process() and (step + 1) % config.general.evaluate_per_step == 0:
+                torch.save(model.state_dict(), f"{config.path.ckpt}/{config.general.model_type}_{epoch}.bin")
+                print("### start validate ")
                 valid_mrrs, valid_losses = [], []
 
                 with torch.no_grad():
                     model.eval()
-                    # val_bar = tqdm(enumerate(valid_loader), total=len(valid_loader), position=1)
+                    # bar = tqdm(enumerate(valid_loader), total=len(valid_loader))
                     for _, data in enumerate(valid_loader):
-                        try:
-                            inputs_ids = data["inputs_ids"].cuda()
-                            masks = data["masks"].cuda()
-                            labels = data["labels"].cuda()
-                            context_masks = data["context_masks"].cuda()
+                        contexts_ids = data["context_ids"].to(device)
+                        query_ids = data["query_ids"].to(device)
+                        query_masks = data["query_masks"].to(device)
+                        masks = data["masks"].to(device)
+                        labels = data["labels"].to(device)
+                        context_masks = data["context_masks"].to(device)
+                        with torch.cuda.amp.autocast(dtype=torch.float16):
+                            context_embeddings = model(
+                                ids=contexts_ids, 
+                                masks=masks)
                             
-                            with torch.cuda.amp.autocast(dtype=torch.float16):
-                                logits, loss = model(
-                                    ids=inputs_ids, 
-                                    context_masks=context_masks,
-                                    masks=masks, 
-                                    labels=labels)
-                                    
-                            y_pred = torch.softmax(logits, dim=0).squeeze(1)
-                            y_true = labels
-                            pair = [[pred, label] for pred, label in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]
-                            valid_mrrs += pair  
-                            valid_losses.append(loss.item())
-                        except RuntimeError as e:
-                            torch.cuda.empty_cache()
-                            print("Error in validation: ", e)
-                            continue
-                        # val_bar.set_postfix(loss=loss.item(), epoch=epoch)
+                            query_embeddings = model(
+                                ids=query_ids, 
+                                masks=query_masks)
+                            
+                            context_embeddings = context_embeddings.reshape(query_embeddings.size(0), -1, 768)
+                            query_embeddings = query_embeddings.unsqueeze(1)
+                            logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
+                            logits = torch.cat(logits, dim=0)        
+                            loss = model.loss(labels, logits, context_masks)  
+                            
+                        y_pred = torch.softmax(logits, dim=0).squeeze(1)
+                        y_true = labels
                         
+                        pair = [[label, pred] for label, pred in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]
+                        valid_mrrs += pair  
+                        valid_losses.append(loss.item())
+                        
+                print("### start testing ")
                 with torch.no_grad():
                     test_mrrs, test_losses = [], []
                     model.eval()
-                    # test_bar = tqdm(enumerate(test_loader), total=len(test_loader), position=2)
+                    # bar = tqdm(enumerate(test_loader), total=len(test_loader))
                     for _, data in enumerate(test_loader):
-                        try:
-                            inputs_ids = data["inputs_ids"].cuda()
-                            masks = data["masks"].cuda()
-                            labels = data["labels"].cuda()
-                            context_masks = data["context_masks"].cuda()
+                        contexts_ids = data["context_ids"].to(device)
+                        query_ids = data["query_ids"].to(device)
+                        query_masks = data["query_masks"].to(device)
+                        masks = data["masks"].to(device)
+                        labels = data["labels"].to(device)
+                        context_masks = data["context_masks"].to(device)
+                        with torch.cuda.amp.autocast(dtype=torch.float16):
+                            context_embeddings = model(
+                                ids=contexts_ids, 
+                                masks=masks)
                             
-                            with torch.cuda.amp.autocast(dtype=torch.float16):
-                                logits, loss = model(
-                                    ids=inputs_ids, 
-                                    context_masks=context_masks,
-                                    masks=masks, 
-                                    labels=labels)
-                            y_pred = torch.softmax(logits, dim=0).squeeze(1)
-                            y_true = labels
+                            query_embeddings = model(
+                                ids=query_ids, 
+                                masks=query_masks)
                             
-                            pair = [[pred, label] for pred, label in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]
-                            test_mrrs += pair
-                            test_losses.append(loss.item())
-                        except RuntimeError as e:
-                            torch.cuda.empty_cache()
-                            print("Error in testing: ", e)
-                            continue
-                        # test_bar.set_postfix(loss=loss.item(), epoch=epoch)
+                            context_embeddings = context_embeddings.reshape(query_embeddings.size(0), -1, 768)
+                            query_embeddings = query_embeddings.unsqueeze(1)
+                            logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
+                            logits = torch.cat(logits, dim=0)        
+                        
+                        y_pred = torch.softmax(logits, dim=0).squeeze(1)
+                        y_true = labels
+                        
+                        pair = [[label, pred] for label, pred in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]
+                        test_mrrs += pair
+                        test_losses.append(loss.item())
+                        # bar.set_postfix(loss=loss.item(), epoch=epoch)
                     
                 valid_mrrs = list(map(calculate_mrr, valid_mrrs))
                 valid_mrrs = np.array(valid_mrrs).mean()
-                                
+                        
                 test_mrrs = list(map(calculate_mrr, test_mrrs))
                 test_mrrs = np.array(test_mrrs).mean()
                 
@@ -342,6 +340,7 @@ def train(config):
                         "valid_loss": np.mean(np.array(valid_losses))},
                     global_step=step
                 )
+            step += 1
         
 def calculate_mrr(pair):
     return mrr_score(*pair)
@@ -355,6 +354,5 @@ def mrr_score(y_true, y_score):
 if __name__ == "__main__":
     path = "config.yaml"
     config = OmegaConf.load(path)
-    if is_main_process():
-        print(json.dumps(OmegaConf.to_container(config), indent=4, ensure_ascii=False))
+    print(json.dumps(OmegaConf.to_container(config), indent=4, ensure_ascii=False))
     train(config)
