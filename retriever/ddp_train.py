@@ -29,8 +29,6 @@ from datetime import datetime
 from transformers import AutoTokenizer
 from transformers import AutoModel, AutoConfig
 
-device = "cpu" if not torch.cuda.is_available() else "cuda"
-
 def is_dist_avail_and_initialized():
     if not dist.is_available():
         return False
@@ -124,7 +122,7 @@ def init_model_and_tokenizer(config):
         max_length=config.general.max_length, 
         batch_size=config.general.batch_size,
         device=config.general.device,
-        tokenizer=tokenizer, model=plm).to(device)
+        tokenizer=tokenizer, model=plm)
     
     if os.path.exists(config.path.warm_up):
         model.load_state_dict(torch.load(config.path.warm_up, map_location="cpu"))
@@ -179,7 +177,9 @@ def prepare_dataloader(config, tokenizer):
         
 
 def train(config):
-    writer = init_directories_and_logger(config)        
+    init_distributed()
+    if is_main_process():
+        writer = init_directories_and_logger(config)        
     model, tokenizer = init_model_and_tokenizer(config)
     model = model.cuda()
     
@@ -203,12 +203,12 @@ def train(config):
         train_losses = []
         bar = tqdm(enumerate(train_loader), total=len(train_loader))
         for _, data in bar:
-            contexts_ids = data["context_ids"].to(device)
-            query_ids = data["query_ids"].to(device)
-            query_masks = data["query_masks"].to(device)
-            masks = data["masks"].to(device)
-            labels = data["labels"].to(device)
-            context_masks = data["context_masks"].to(device)
+            contexts_ids = data["context_ids"].cuda()
+            query_ids = data["query_ids"].cuda()
+            query_masks = data["query_masks"].cuda()
+            masks = data["masks"].cuda()
+            labels = data["labels"].cuda()
+            context_masks = data["context_masks"].cuda()
             with torch.cuda.amp.autocast(dtype=torch.float16):
                 context_embeddings = model(
                     ids=contexts_ids, 
@@ -254,12 +254,12 @@ def train(config):
                     model.eval()
                     # bar = tqdm(enumerate(valid_loader), total=len(valid_loader))
                     for _, data in enumerate(valid_loader):
-                        contexts_ids = data["context_ids"].to(device)
-                        query_ids = data["query_ids"].to(device)
-                        query_masks = data["query_masks"].to(device)
-                        masks = data["masks"].to(device)
-                        labels = data["labels"].to(device)
-                        context_masks = data["context_masks"].to(device)
+                        contexts_ids = data["context_ids"].cuda()
+                        query_ids = data["query_ids"].cuda()
+                        query_masks = data["query_masks"].cuda()
+                        masks = data["masks"].cuda()
+                        labels = data["labels"].cuda()
+                        context_masks = data["context_masks"].cuda()
                         with torch.cuda.amp.autocast(dtype=torch.float16):
                             context_embeddings = model(
                                 ids=contexts_ids, 
@@ -288,12 +288,12 @@ def train(config):
                     model.eval()
                     # bar = tqdm(enumerate(test_loader), total=len(test_loader))
                     for _, data in enumerate(test_loader):
-                        contexts_ids = data["context_ids"].to(device)
-                        query_ids = data["query_ids"].to(device)
-                        query_masks = data["query_masks"].to(device)
-                        masks = data["masks"].to(device)
-                        labels = data["labels"].to(device)
-                        context_masks = data["context_masks"].to(device)
+                        contexts_ids = data["context_ids"].cuda()
+                        query_ids = data["query_ids"].cuda()
+                        query_masks = data["query_masks"].cuda()
+                        masks = data["masks"].cuda()
+                        labels = data["labels"].cuda()
+                        context_masks = data["context_masks"].cuda()
                         with torch.cuda.amp.autocast(dtype=torch.float16):
                             context_embeddings = model(
                                 ids=contexts_ids, 
