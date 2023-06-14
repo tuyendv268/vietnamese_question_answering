@@ -13,7 +13,7 @@ general:
   logging_per_steps: 10
   evaluate_per_step: 10000
   # envibert
-  plm: envibert
+  plm: xlmr
   accumulation_steps: 8
 
 path: 

@@ -223,6 +223,7 @@ def train(config):
                 logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
                 logits = torch.cat(logits, dim=0)
                 
+                loss = model.loss(labels, logits, context_masks)  
                 loss /= config.general.accumulation_steps
             loss.backward()
 
