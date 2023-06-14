@@ -43,6 +43,8 @@ def init_model_and_tokenizer(config):
 
 config = OmegaConf.load("config.yaml")
 model, tokenizer = init_model_and_tokenizer(config)
+model.eval()
+
 bm25_model = BM25()
 bm25_model.load("checkpoints/bm25")
 

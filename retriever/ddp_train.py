@@ -230,7 +230,7 @@ def train(config):
                 
                 loss = contrastive_loss(labels, logits, context_masks)  
                 loss /= config.general.accumulation_steps
-            loss.backward()
+            scaler.scale(loss).backward()
 
             train_losses.append(loss.item())
             
