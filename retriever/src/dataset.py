@@ -1,5 +1,6 @@
 import numpy as np
 from importlib.machinery import SourceFileLoader
+import json
 import os
 import random
 from typing import List
@@ -9,8 +10,8 @@ from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer
 from src.utils import norm_text
 from transformers import AutoModel, AutoConfig
+from src.indexed_datasets import IndexedDataset
 
-import json
     
 class Infer_Pairwise_Dataset(Dataset):
     def __init__(self, df, tokenizer, max_length):
@@ -87,123 +88,6 @@ class Infer_Dual_Dataset(Dataset):
             "masks":torch.vstack(masks)
         }
         
-class QA_Dataset_v1(Dataset):
-    def __init__(self, data, tokenizer, max_length=384, mode="train", mask_percent=0.15):
-        self.data = data
-        self.max_length = max_length
-        self.tokenizer = tokenizer
-        
-        self.mask_percent = mask_percent
-        self.mode = mode
-
-    def __len__(self):
-        return len(self.data)
-    
-    def _parse_sample(self, query, positive_index, contexts):  
-        normed_query = norm_text(query) 
-        normed_contexts = [norm_text(text) for text in contexts]
-        
-        positive_index = torch.tensor(positive_index)
-        
-        contexts = self.tokenizer(
-            normed_contexts, max_length=self.max_length, truncation=True)["input_ids"]
-
-        query = self.tokenizer(
-            normed_query, max_length=self.max_length, truncation=True)["input_ids"]
-        
-        if self.mode == "train":
-            num_mask = 2 if len(query) > 16 else 1
-            for _ in range(num_mask):
-                mask_idx = random.randint(1, len(query) - 1)
-                query[mask_idx] = self.tokenizer.mask_token_id
-            
-            # print(self.tokenizer.decode(query))
-            for index in range(len(contexts)):
-                num_mask = 12 if len(contexts[index]) > 96 else 6
-                for _ in range(num_mask):
-                    mask_idx = random.randint(1, len(contexts[index]) - 1)
-                    contexts[index][mask_idx] = self.tokenizer.mask_token_id
-                    # print(self.tokenizer.decode(contexts[index]))
-        
-        return {
-            "positive_index": positive_index,
-            "contexts":contexts,
-            "query": query
-        }
-       
-    def __getitem__(self, index):
-        sample = json.loads(self.data[index].strip())
-        
-        query = sample["query"]
-        
-        contexts = []
-        positive_index, count = None, 0
-        for index, context in enumerate(sample["passages"]):
-            if context["is_selected"] == 1:
-                positive_index=index
-                assert count == 0
-                count += 1
-            contexts.append(context["passage_text"])
-            
-        return self._parse_sample(
-            query=query,
-            positive_index=positive_index,
-            contexts=contexts
-        )
-        
-    def cross_collate_fn(self, batch):
-        ids = [
-            [
-                torch.cat([
-                    torch.Tensor(sample["query"][:-1]),
-                    torch.Tensor([self.tokenizer.sep_token_id]), 
-                    torch.Tensor(context[1:])
-                    ]) 
-                for context in sample["contexts"]
-            ]
-            for sample in batch 
-        ]
-        
-        labels = torch.tensor([sample["positive_index"] for sample in batch])
-        
-        max_length = max([len(x) for sample in ids for x in sample])
-        max_context = max([len(sample) for sample in ids])
-        
-        inputs_ids, masks, context_masks = [], [], []
-        for sample in ids:
-            _temp_ids, _temp_masks = [], []
-            for i in range(len(sample)):
-                if len(sample[i]) < max_length:
-                    sample[i] = torch.cat(
-                        (
-                            sample[i], 
-                            torch.Tensor([self.tokenizer.pad_token_id, ]*(max_length-len(sample[i])))
-                            )
-                        )
-                _temp_ids.append(sample[i])
-                _temp_masks.append(sample[i] != self.tokenizer.pad_token_id)
-            
-            _context_masks = [1]*len(_temp_ids) + [0]*(max_context-len(_temp_ids))
-            _temp_masks += [torch.zeros_like(_temp_masks[0])]*(max_context-len(_temp_masks))
-            _temp_ids += [torch.zeros_like(_temp_ids[0])]*(max_context-len(_temp_ids))
-            
-            masks.append(torch.stack(_temp_masks, dim=0))
-            inputs_ids.append(torch.stack(_temp_ids, dim=0))
-            context_masks.append(_context_masks)
-            
-        masks = torch.vstack(masks)
-        inputs_ids = torch.vstack(inputs_ids).long()
-        labels = torch.nn.functional.one_hot(labels, max_context)
-        context_masks = torch.tensor(context_masks, dtype=torch.bool)
-        
-        return {
-            "inputs_ids": inputs_ids,
-            "masks": masks,
-            "labels": labels,
-            "context_masks": context_masks
-        }
-
-from src.indexed_datasets import IndexedDataset
 class QA_Dataset(Dataset):
     def __init__(self, path, tokenizer, max_length=384, mode="train", mask_percent=0.15):
         self.data = IndexedDataset(path)
@@ -267,6 +151,74 @@ class QA_Dataset(Dataset):
             positive_index=positive_index,
             contexts=contexts
         )
+    def dual_collate_fn(self, batch):
+        _context_ids = [
+            [
+                torch.Tensor(context)
+                for context in sample["contexts"]
+            ]
+            for sample in batch 
+        ]
+        
+        query_ids = [
+            torch.Tensor(sample["query"])
+            for sample in batch 
+        ]
+        
+        max_length = max([len(sample) for sample in query_ids])        
+        query_masks = []
+        for i in range(len(query_ids)):
+            if query_ids[i].size(0) < max_length:
+                query_ids[i] = torch.cat(
+                    (
+                        query_ids[i], 
+                        torch.Tensor([self.tokenizer.pad_token_id, ]*(max_length-len(query_ids[i])))
+                        )
+                    )
+            query_masks.append(query_ids[i] != self.tokenizer.pad_token_id)
+            
+        query_ids = torch.vstack(query_ids).long()
+        query_masks = torch.vstack(query_masks)        
+        labels = torch.tensor([sample["positive_index"] for sample in batch])
+        
+        max_length = max([len(x) for sample in _context_ids for x in sample])
+        max_context = max([len(sample) for sample in _context_ids])
+        
+        context_ids, masks, context_masks = [], [], []
+        for sample in _context_ids:
+            _temp_ids, _temp_masks = [], []
+            for i in range(len(sample)):
+                if len(sample[i]) < max_length:
+                    sample[i] = torch.cat(
+                        (
+                            sample[i], 
+                            torch.Tensor([self.tokenizer.pad_token_id, ]*(max_length-len(sample[i])))
+                            )
+                        )
+                _temp_ids.append(sample[i])
+                _temp_masks.append(sample[i] != self.tokenizer.pad_token_id)
+            
+            _context_masks = [1]*len(_temp_ids) + [0]*(max_context-len(_temp_ids))
+            _temp_masks += [torch.zeros_like(_temp_masks[0])]*(max_context-len(_temp_masks))
+            _temp_ids += [torch.zeros_like(_temp_ids[0])]*(max_context-len(_temp_ids))
+            
+            masks.append(torch.stack(_temp_masks, dim=0))
+            context_ids.append(torch.stack(_temp_ids, dim=0))
+            context_masks.append(_context_masks)
+            
+        masks = torch.vstack(masks)
+        context_ids = torch.vstack(context_ids).long()
+        labels = torch.nn.functional.one_hot(labels, max_context)
+        context_masks = torch.tensor(context_masks, dtype=torch.bool)
+        
+        return {
+            "context_ids": context_ids,
+            "query_ids": query_ids,
+            "query_masks": query_masks,
+            "masks": masks,
+            "labels": labels,
+            "context_masks": context_masks
+        }
         
     def cross_collate_fn(self, batch):
         ids = [

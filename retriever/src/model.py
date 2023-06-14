@@ -1,7 +1,7 @@
 from importlib.machinery import SourceFileLoader
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from retriever.src.utils import norm_text
+from src.utils import norm_text
 import numpy as np
 import pandas as pd
 import os
@@ -12,8 +12,8 @@ from transformers import RobertaModel
 from transformers import AutoModel, AutoConfig
 from transformers import AutoTokenizer
 
-from retriever.src.dataset import QA_Dataset
-from retriever.src.dataset import (
+from src.dataset import QA_Dataset
+from src.dataset import (
     Infer_Dual_Dataset,
     Infer_Pairwise_Dataset
 )
@@ -39,15 +39,21 @@ class Dual_Model(nn.Module):
         self.tokenizer = tokenizer
         self.dropout = nn.Dropout(droprate)
         
-    def forward(self, ids, masks):
-        out = self.model(input_ids=ids, attention_mask=masks,
-            output_hidden_states=False).last_hidden_state
+    def forward(self, ids, masks, labels=None, context_masks=None):
+        output = self.model(input_ids=ids, attention_mask=masks)
         
-        out = out[:, 0]
-        out = self.dropout(out)
+        output = output.last_hidden_state[:, 0]
+        output = self.dropout(output)
         
-        return out
-
+        return output
+    
+    def loss(self, labels, logits, context_masks):
+        exp = torch.exp(logits)
+        exp = torch.masked_fill(input=exp, mask=~context_masks, value=0)
+        loss = -torch.log(torch.sum(torch.mul(exp, labels)) / torch.sum(exp))
+        
+        return loss
+    
     @torch.no_grad()
     def extract_query_embedding(self, ids, masks):
         query = self.model(input_ids=ids, attention_mask=masks,

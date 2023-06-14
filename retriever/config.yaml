@@ -4,7 +4,7 @@ general:
   mode: train
   epoch: 2
   # cross = dual
-  model_type: "cross"
+  model_type: "dual"
   valid_size: 0.01
   test_size: 0.1
   max_length: 384
@@ -18,9 +18,9 @@ general:
 
 path: 
   pretrained_dir: ../pretrained
-  train_data: data/val/data.data
-  test_data: data/val/data.data
-  val_data: data/val/data.data
+  train_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/test/data.data
+  test_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/test/data.data
+  val_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/test/data.data
 
   warm_up: checkpoints/cross_1.bin
   ckpt: outputs/checkpoints
