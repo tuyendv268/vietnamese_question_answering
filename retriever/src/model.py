@@ -47,13 +47,6 @@ class Dual_Model(nn.Module):
         
         return output
     
-    def loss(self, labels, logits, context_masks):
-        exp = torch.exp(logits)
-        exp = torch.masked_fill(input=exp, mask=~context_masks, value=0)
-        loss = -torch.log(torch.sum(torch.mul(exp, labels)) / torch.sum(exp))
-        
-        return loss
-    
     @torch.no_grad()
     def extract_query_embedding(self, ids, masks):
         query = self.model(input_ids=ids, attention_mask=masks,

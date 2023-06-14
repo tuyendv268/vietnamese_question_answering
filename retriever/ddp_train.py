@@ -175,7 +175,12 @@ def prepare_dataloader(config, tokenizer):
     
     return train_loader, valid_loader, test_loader
         
-
+def contrastive_loss(labels, logits, context_masks):
+        exp = torch.exp(logits)
+        exp = torch.masked_fill(input=exp, mask=~context_masks, value=0)
+        loss = -torch.log(torch.sum(torch.mul(exp, labels)) / torch.sum(exp))
+        
+        return loss
 def train(config):
     init_distributed()
     if is_main_process():
@@ -223,7 +228,7 @@ def train(config):
                 logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
                 logits = torch.cat(logits, dim=0)
                 
-                loss = model.loss(labels, logits, context_masks)  
+                loss = contrastive_loss(labels, logits, context_masks)  
                 loss /= config.general.accumulation_steps
             loss.backward()
 
@@ -273,7 +278,7 @@ def train(config):
                             query_embeddings = query_embeddings.unsqueeze(1)
                             logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
                             logits = torch.cat(logits, dim=0)        
-                            loss = model.loss(labels, logits, context_masks)  
+                            loss = contrastive_loss(labels, logits, context_masks)  
                             
                         y_pred = torch.softmax(logits, dim=0).squeeze(1)
                         y_true = labels
@@ -307,7 +312,8 @@ def train(config):
                             query_embeddings = query_embeddings.unsqueeze(1)
                             logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
                             logits = torch.cat(logits, dim=0)        
-                        
+                            loss = contrastive_loss(labels, logits, context_masks)  
+
                         y_pred = torch.softmax(logits, dim=0).squeeze(1)
                         y_true = labels
                         
