@@ -39,12 +39,12 @@ def caculate_cosin_loss(labels, query_embeddings, context_embeddings, masks):
     
     return loss, logits
 
-def caculate_dot_product_loss(labels, query_embeddings, context_embeddings, masks, temperature=4):
+def caculate_dot_product_loss(labels, query_embeddings, context_embeddings, masks, temperature=8):
     context_embeddings = context_embeddings.reshape(labels.size(0), labels.size(1), -1)
     query_embeddings = query_embeddings.unsqueeze(-1)
     
     logits = torch.matmul(context_embeddings, query_embeddings).squeeze(-1)
-    loss = contrastive_loss(labels, logits, masks, temperature=temperature) 
+    loss = contrastive_loss(labels, logits, masks, temperature=temperature)
     
     return loss, logits
 

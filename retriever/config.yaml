@@ -1,5 +1,5 @@
 general:
-  batch_size: 2
+  batch_size: 4
   device: cpu
   mode: train
   epoch: 2
@@ -13,18 +13,18 @@ general:
   logging_per_steps: 1000
   evaluate_per_step: 5000
   # envibert
-  plm: envibert
+  plm: xlmr
   accumulation_steps: 8
 
 path: 
-  pretrained_dir: ../pretrained
-  train_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/test/data.data
-  test_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/test/data.data
-  val_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/test/data.data
-  # pretrained_dir: /content/drive/MyDrive/pretrained
-  # train_data: /content/vietnamese_question_answering/data/train/data.data
-  # test_data: /content/vietnamese_question_answering/data/test/data.data
-  # val_data: /content/vietnamese_question_answering/data/val/data.data
+  # pretrained_dir: ../pretrained
+  # train_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/test/data.data
+  # test_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/test/data.data
+  # val_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/test/data.data
+  pretrained_dir: /content/drive/MyDrive/pretrained
+  train_data: /content/vietnamese_question_answering/data/train/data.data
+  test_data: /content/vietnamese_question_answering/data/test/data.data
+  val_data: /content/vietnamese_question_answering/data/val/data.data
   warm_up: checkpoints/cross_1.bin
   ckpt: outputs/checkpoints
   log: outputs/logs
