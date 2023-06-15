@@ -151,26 +151,18 @@ def train(config):
             
             context_embeddings = model(
                 ids=contexts_ids, 
-                masks=masks)
-            # print(model.tokenizer.decode(contexts_ids[0]))
+                masks=context_masks)
             
             query_embeddings = model(
                 ids=query_ids, 
                 masks=query_masks)
-            # print(model.tokenizer.decode(query_ids[0]))
-            # context_embeddings = context_embeddings.reshape(query_embeddings.size(0), -1, 768)
-            # query_embeddings = query_embeddings.unsqueeze(1)
-            
-            # logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]        
-            # logits = torch.cat(logits, dim=0)
-            # loss = contrastive_loss(labels, logits, context_masks)  
-            
+                        
             context_embeddings = context_embeddings.reshape(query_embeddings.size(0), -1, 768)
-            query_embeddings = query_embeddings.unsqueeze(-1)
-            logits = torch.matmul(context_embeddings, query_embeddings)
-            logits = logits.squeeze(-1)
+            query_embeddings = query_embeddings.unsqueeze(1)
+            logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
+            logits = torch.cat(logits, dim=0)        
+            loss = contrastive_loss(labels, logits, masks)  
             
-            loss = contrastive_loss(labels, logits, context_masks, temperature=8) 
             train_losses.append(loss.item())
             
             loss /= config.general.accumulation_steps
@@ -181,8 +173,8 @@ def train(config):
                 optimizer.zero_grad()
                 scheduler.step()
                 
-            bar.set_postfix(loss=loss.item(), epoch=epoch, lr=scheduler.get_last_lr())
-            if step % config.general.logging_per_steps == 0:
+            bar.set_postfix(loss=loss.item()*config.general.accumulation_steps, epoch=epoch, lr=scheduler.get_last_lr())
+            if (step+1) % config.general.logging_per_steps == 0:
                 torch.save(model.state_dict(), f"{config.path.ckpt}/{config.general.model_type}_{epoch}.bin")
             
                 print("### start validate ")
@@ -201,25 +193,19 @@ def train(config):
                         
                         context_embeddings = model(
                             ids=contexts_ids, 
-                            masks=masks)
+                            masks=context_masks)
                         
                         query_embeddings = model(
                             ids=query_ids, 
                             masks=query_masks)
                         
-                        # context_embeddings = context_embeddings.reshape(query_embeddings.size(0), -1, 768)
-                        # query_embeddings = query_embeddings.unsqueeze(1)
-                        # logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
-                        # logits = torch.cat(logits, dim=0)        
-                        # loss = contrastive_loss(labels, logits, context_masks)  
                         context_embeddings = context_embeddings.reshape(query_embeddings.size(0), -1, 768)
-                        query_embeddings = query_embeddings.unsqueeze(-1)
-                        logits = torch.matmul(context_embeddings, query_embeddings)
-                        logits = logits.squeeze(-1)
-                        
-                        loss = contrastive_loss(labels, logits, context_masks, temperature=8) 
+                        query_embeddings = query_embeddings.unsqueeze(1)
+                        logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
+                        logits = torch.cat(logits, dim=0)        
+                        loss = contrastive_loss(labels, logits, masks)  
 
-                        y_pred = torch.softmax(logits/8, dim=0).squeeze(1)
+                        y_pred = torch.softmax(logits, dim=0).squeeze(1)
                         y_true = labels
                         
                         pair = [[label, pred] for label, pred in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]
@@ -243,18 +229,17 @@ def train(config):
                         
                         context_embeddings = model(
                             ids=contexts_ids, 
-                            masks=masks)
+                            masks=context_masks)
                         
                         query_embeddings = model(
                             ids=query_ids, 
                             masks=query_masks)
                         
                         context_embeddings = context_embeddings.reshape(query_embeddings.size(0), -1, 768)
-                        query_embeddings = query_embeddings.unsqueeze(-1)
-                        logits = torch.matmul(context_embeddings, query_embeddings)
-                        logits = logits.squeeze(-1)
-                        
-                        loss = contrastive_loss(labels, logits, context_masks, temperature=8) 
+                        query_embeddings = query_embeddings.unsqueeze(1)
+                        logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
+                        logits = torch.cat(logits, dim=0)        
+                        loss = contrastive_loss(labels, logits, masks)  
 
                         y_pred = torch.softmax(logits/8, dim=0).squeeze(1)
                         y_true = labels

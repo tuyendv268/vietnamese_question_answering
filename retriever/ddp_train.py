@@ -212,7 +212,7 @@ def train(config):
             with torch.cuda.amp.autocast(dtype=torch.float16):
                 context_embeddings = model(
                     ids=contexts_ids, 
-                    masks=masks)
+                    masks=context_masks)
                 
                 query_embeddings = model(
                     ids=query_ids, 
@@ -223,7 +223,7 @@ def train(config):
                 logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
                 logits = torch.cat(logits, dim=0)
                 
-                loss = contrastive_loss(labels, logits, context_masks)  
+                loss = contrastive_loss(labels, logits, masks)  
                 loss /= config.general.accumulation_steps
             scaler.scale(loss).backward()
 
@@ -263,7 +263,7 @@ def train(config):
                         with torch.cuda.amp.autocast(dtype=torch.float16):
                             context_embeddings = model(
                                 ids=contexts_ids, 
-                                masks=masks)
+                                masks=context_masks)
                             
                             query_embeddings = model(
                                 ids=query_ids, 
@@ -273,7 +273,7 @@ def train(config):
                             query_embeddings = query_embeddings.unsqueeze(1)
                             logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
                             logits = torch.cat(logits, dim=0)        
-                            loss = contrastive_loss(labels, logits, context_masks)  
+                            loss = contrastive_loss(labels, logits, masks)  
                             
                         y_pred = torch.softmax(logits, dim=0).squeeze(1)
                         y_true = labels
@@ -297,7 +297,7 @@ def train(config):
                         with torch.cuda.amp.autocast(dtype=torch.float16):
                             context_embeddings = model(
                                 ids=contexts_ids, 
-                                masks=masks)
+                                masks=context_masks)
                             
                             query_embeddings = model(
                                 ids=query_ids, 
@@ -307,7 +307,7 @@ def train(config):
                             query_embeddings = query_embeddings.unsqueeze(1)
                             logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
                             logits = torch.cat(logits, dim=0)        
-                            loss = contrastive_loss(labels, logits, context_masks)  
+                            loss = contrastive_loss(labels, logits, masks)  
 
                         y_pred = torch.softmax(logits, dim=0).squeeze(1)
                         y_true = labels

@@ -39,7 +39,7 @@ class Dual_Model(nn.Module):
         self.tokenizer = tokenizer
         self.dropout = nn.Dropout(droprate)
         
-    def forward(self, ids, masks, labels=None, context_masks=None):
+    def forward(self, ids, masks):
         output = self.model(input_ids=ids, attention_mask=masks)
         
         output = output.last_hidden_state[:, 0]

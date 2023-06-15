@@ -145,6 +145,15 @@ class QA_Dataset(Dataset):
                 positive_index=index
             contexts.append(context["passage_text"])
             index+=1
+        
+        # print("#############################")
+        # print("original query: ", query)
+        # print("original positive_index: ", positive_index)
+        # print("original positive context: ", contexts[positive_index])
+        # print("original negative context: ", contexts[0])
+        # print("=============================")
+        # print("original contexts: ", "\n+++++++\n".join(contexts))
+        # print("#############################")
                     
         return self._parse_sample(
             query=query,
@@ -160,33 +169,34 @@ class QA_Dataset(Dataset):
             for sample in batch 
         ]
         
-        query_ids = [
+        _query_ids = [
             torch.Tensor(sample["query"])
             for sample in batch 
         ]
         
-        max_length = max([len(sample) for sample in query_ids])        
-        query_masks = []
-        for i in range(len(query_ids)):
-            if query_ids[i].size(0) < max_length:
-                query_ids[i] = torch.cat(
+        _labels = [sample["positive_index"] for sample in batch]
+        
+        ### padding to query
+        max_length = max([len(sample) for sample in _query_ids])        
+        query_ids, query_masks = [], []
+        for i in range(len(_query_ids)):
+            if _query_ids[i].size(0) < max_length:
+                _query_ids[i] = torch.cat(
                     (
-                        query_ids[i], 
-                        torch.Tensor([self.tokenizer.pad_token_id, ]*(max_length-len(query_ids[i])))
+                        _query_ids[i], 
+                        torch.Tensor([self.tokenizer.pad_token_id, ]*(max_length-len(_query_ids[i])))
                         )
                     )
-            query_masks.append(query_ids[i] != self.tokenizer.pad_token_id)
+            query_masks.append(_query_ids[i] != self.tokenizer.pad_token_id)
+            query_ids.append(_query_ids[i])
             
-        query_ids = torch.vstack(query_ids).long()
-        query_masks = torch.vstack(query_masks)        
-        labels = torch.tensor([sample["positive_index"] for sample in batch])
-        
+        ### padding to context
         max_length = max([len(x) for sample in _context_ids for x in sample])
         max_context = max([len(sample) for sample in _context_ids])
         
         context_ids, masks, context_masks = [], [], []
         for sample in _context_ids:
-            _temp_ids, _temp_masks = [], []
+            _temp_context_ids, _temp_context_masks, _temp_masks = [], [], []
             for i in range(len(sample)):
                 if len(sample[i]) < max_length:
                     sample[i] = torch.cat(
@@ -195,21 +205,38 @@ class QA_Dataset(Dataset):
                             torch.Tensor([self.tokenizer.pad_token_id, ]*(max_length-len(sample[i])))
                             )
                         )
-                _temp_ids.append(sample[i])
-                _temp_masks.append(sample[i] != self.tokenizer.pad_token_id)
+                _temp_context_ids.append(sample[i])
+                _temp_context_masks.append(sample[i] != self.tokenizer.pad_token_id)
             
-            _context_masks = [1]*len(_temp_ids) + [0]*(max_context-len(_temp_ids))
-            _temp_masks += [torch.zeros_like(_temp_masks[0])]*(max_context-len(_temp_masks))
-            _temp_ids += [torch.zeros_like(_temp_ids[0])]*(max_context-len(_temp_ids))
+            _temp_masks = [1]*len(_temp_context_ids) + [0]*(max_context-len(_temp_context_ids))
+            _temp_context_masks += [torch.zeros_like(_temp_context_masks[0])]*(max_context-len(_temp_context_masks))
+            _temp_context_ids += [self.tokenizer.pad_token_id*torch.ones_like(_temp_context_ids[0])]*(max_context-len(_temp_context_ids))
             
-            masks.append(torch.stack(_temp_masks, dim=0))
-            context_ids.append(torch.stack(_temp_ids, dim=0))
-            context_masks.append(_context_masks)
+            masks.append(torch.tensor(_temp_masks, dtype=torch.bool))
+            context_ids.append(torch.stack(_temp_context_ids, dim=0))
+            context_masks.append(torch.stack(_temp_context_masks, dim=0))
             
-        masks = torch.vstack(masks)
+        _labels = torch.tensor(_labels)
+        
         context_ids = torch.vstack(context_ids).long()
-        labels = torch.nn.functional.one_hot(labels, max_context)
-        context_masks = torch.tensor(context_masks, dtype=torch.bool)
+        context_masks = torch.vstack(context_masks)
+        query_ids = torch.vstack(query_ids).long()
+        query_masks = torch.vstack(query_masks)
+        labels = torch.nn.functional.one_hot(_labels, max_context)
+        masks = torch.vstack(masks).bool()
+        
+        # print('#####################')
+        # print("labels: ", _labels)
+        # print("query_ids: ", self.tokenizer.decode(query_ids[0]).replace("▁", ""))
+        # print("context_ids: ", self.tokenizer.decode(context_ids[_labels[0]]).replace("▁", ""))
+        # print('#####################')
+        
+        # print("context_ids: ", context_ids.shape, context_ids)
+        # print("context_masks: ", context_masks.shape, context_masks)
+        # print("query_ids: ", query_ids.shape, query_ids)
+        # print("query_masks: ", query_masks.shape, query_masks)
+        # print("masks: ", masks.shape, masks)
+        # print("labels: ", labels.shape, labels)
         
         return {
             "context_ids": context_ids,
