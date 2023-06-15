@@ -221,8 +221,8 @@ def train(config):
     for epoch in range(config.general.epoch):
         model.train()
         train_losses = []
-        # bar = tqdm(enumerate(train_loader), total=len(train_loader))
-        for _, data in enumerate(train_loader):
+        bar = tqdm(enumerate(train_loader), total=len(train_loader))
+        for _, data in bar:
             contexts_ids = data["context_ids"].cuda()
             query_ids = data["query_ids"].cuda()
             query_masks = data["query_masks"].cuda()
@@ -248,7 +248,8 @@ def train(config):
             scaler.scale(loss).backward()
 
             train_losses.append(loss.item() * config.general.accumulation_steps)
-            
+            _temp = np.mean(np.array(train_losses))
+            bar.set_postfix(mean_loss=_temp, loss=loss.item()*config.general.accumulation_steps, epoch=epoch, lr=scheduler.get_last_lr())
             if (step + 1) % config.general.accumulation_steps == 0:
                 scaler.step(optimizer)
                 optimizer.zero_grad()
