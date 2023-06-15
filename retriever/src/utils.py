@@ -11,8 +11,8 @@ import random
 import json
 import torch
 
-def contrastive_loss(labels, logits, masks):
-    exp = torch.exp(logits)
+def contrastive_loss(labels, logits, masks, temperature=0.25):
+    exp = torch.exp(logits/temperature)
     exp = torch.masked_fill(input=exp, mask=~masks, value=0)
     loss = -torch.log(torch.sum(torch.mul(exp, labels), dim=1) / torch.sum(exp, dim=1))
     loss = torch.mean(loss)
