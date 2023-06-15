@@ -255,8 +255,8 @@ def train(config):
 
                 with torch.no_grad():
                     model.eval()
-                    bar = tqdm(enumerate(valid_loader), total=len(valid_loader))
-                    for _, data in bar:
+                    _bar = tqdm(enumerate(valid_loader), total=len(valid_loader))
+                    for _, data in _bar:
                         contexts_ids = data["context_ids"].cuda()
                         query_ids = data["query_ids"].cuda()
                         query_masks = data["query_masks"].cuda()
@@ -284,14 +284,15 @@ def train(config):
                         pair = [[label, pred] for label, pred in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]
                         valid_mrrs += pair  
                         valid_losses.append(loss.item())
-                        bar.set_postfix(loss=loss.item(), epoch=epoch)
+                        _bar.set_postfix(loss=loss.item(), epoch=epoch)
+                    model.train()
                         
                 print("### start testing ")
                 with torch.no_grad():
                     test_mrrs, test_losses = [], []
                     model.eval()
-                    bar = tqdm(enumerate(test_loader), total=len(test_loader))
-                    for _, data in bar:
+                    _bar = tqdm(enumerate(test_loader), total=len(test_loader))
+                    for _, data in _bar:
                         contexts_ids = data["context_ids"].cuda()
                         query_ids = data["query_ids"].cuda()
                         query_masks = data["query_masks"].cuda()
@@ -320,7 +321,8 @@ def train(config):
                         pair = [[label, pred] for label, pred in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]
                         test_mrrs += pair
                         test_losses.append(loss.item())
-                        bar.set_postfix(loss=loss.item(), epoch=epoch)
+                        _bar.set_postfix(loss=loss.item(), epoch=epoch)
+                    model.train()
                     
                 valid_mrrs = list(map(calculate_mrr, valid_mrrs))
                 valid_mrrs = np.array(valid_mrrs).mean()
@@ -346,7 +348,6 @@ def train(config):
                         "valid_loss": np.mean(np.array(valid_losses))},
                     global_step=step
                 )
-                model.train()
             step += 1
         
 def calculate_mrr(pair):
