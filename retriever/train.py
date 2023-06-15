@@ -160,7 +160,8 @@ def train(config):
             context_embeddings = context_embeddings.reshape(query_embeddings.size(0), -1, 768)
             query_embeddings = query_embeddings.unsqueeze(1)
             logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
-            logits = torch.cat(logits, dim=0)        
+            logits = torch.cat(logits, dim=0)
+            print(labels, logits, masks)   
             loss = contrastive_loss(labels, logits, masks)  
             
             train_losses.append(loss.item())
