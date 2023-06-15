@@ -7,6 +7,7 @@ import numpy as np
 import json
 
 from torchmetrics.functional import pairwise_cosine_similarity
+from torch.utils.data.distributed import DistributedSampler
 import torch
 from torch.utils.data import DataLoader
 from transformers import RobertaModel
@@ -132,13 +133,9 @@ def init_model_and_tokenizer(config):
     return model, tokenizer
 
 def prepare_dataloader(config, tokenizer):
-    # train_data = load_data(config.path.train_data)
     test_data = config.path.test_data
     train_data = config.path.train_data
     val_data = config.path.val_data
-    
-    # train_data, val_data = train_test_split(train_data, test_size=config.general.valid_size, random_state=42)
-    
     train_dataset = QA_Dataset(
         train_data, mode="train",
         tokenizer=tokenizer, 
@@ -148,20 +145,24 @@ def prepare_dataloader(config, tokenizer):
         collate_fn = train_dataset.cross_collate_fn
     elif config.general.model_type =="dual" :
         collate_fn = train_dataset.dual_collate_fn
-        
+    
+    sampler = DistributedSampler(dataset=train_dataset, shuffle=True)
     train_loader = DataLoader(
         train_dataset, batch_size=config.general.batch_size,
-        collate_fn=collate_fn,
-        num_workers=config.general.n_worker, shuffle=True, pin_memory=True, drop_last=True)
+        collate_fn=collate_fn, sampler=sampler,
+        num_workers=config.general.n_worker, 
+        shuffle=False, pin_memory=True, drop_last=True)
+    
     
     valid_dataset = QA_Dataset(
         val_data, mode="val",
         tokenizer=tokenizer, 
         max_length=config.general.max_length)
     
+    sampler = DistributedSampler(dataset=valid_dataset, shuffle=False)
     valid_loader = DataLoader(
         valid_dataset, batch_size=config.general.batch_size, 
-        collate_fn=collate_fn,
+        collate_fn=collate_fn, sampler=sampler,
         num_workers=0, shuffle=False, pin_memory=True)
     
     test_dataset = QA_Dataset(
@@ -169,9 +170,10 @@ def prepare_dataloader(config, tokenizer):
         tokenizer=tokenizer, 
         max_length=config.general.max_length)
     
+    sampler = DistributedSampler(dataset=test_dataset, shuffle=False)
     test_loader = DataLoader(
         test_dataset, batch_size=config.general.batch_size, 
-        collate_fn=collate_fn, 
+        collate_fn=collate_fn, sampler=sampler,
         num_workers=0, shuffle=False, pin_memory=True, drop_last=False)
     
     return train_loader, valid_loader, test_loader
@@ -201,8 +203,8 @@ def train(config):
     for epoch in range(config.general.epoch):
         model.train()
         train_losses = []
-        bar = tqdm(enumerate(train_loader), total=len(train_loader))
-        for _, data in bar:
+        # bar = tqdm(enumerate(train_loader), total=len(train_loader))
+        for _, data in enumerate(train_loader):
             contexts_ids = data["context_ids"].cuda()
             query_ids = data["query_ids"].cuda()
             query_masks = data["query_masks"].cuda()
@@ -227,7 +229,7 @@ def train(config):
                 loss /= config.general.accumulation_steps
             scaler.scale(loss).backward()
 
-            train_losses.append(loss.item())
+            train_losses.append(loss.item() * config.general.accumulation_steps)
             
             if (step + 1) % config.general.accumulation_steps == 0:
                 scaler.step(optimizer)

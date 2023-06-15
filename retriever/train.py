@@ -241,7 +241,7 @@ def train(config):
                         logits = torch.cat(logits, dim=0)        
                         loss = contrastive_loss(labels, logits, masks)  
 
-                        y_pred = torch.softmax(logits/8, dim=0).squeeze(1)
+                        y_pred = torch.softmax(logits, dim=0).squeeze(1)
                         y_true = labels
                         
                         pair = [[label, pred] for label, pred in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]

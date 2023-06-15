@@ -86,5 +86,5 @@ if __name__ == "__main__":
             )
         ],
         title="ChatBot Demo",
-        description="Duong Van Tuyen",
+        description="Information Retrieval",
     ).launch(share=True)
