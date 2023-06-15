@@ -6,7 +6,6 @@ from tqdm import tqdm
 import numpy as np
 import json
 
-from torchmetrics.functional import pairwise_cosine_similarity
 from torch.utils.data.distributed import DistributedSampler
 import torch
 from torch.utils.data import DataLoader
@@ -15,7 +14,7 @@ from transformers import AutoModel
 from transformers import AutoTokenizer
 import torch.distributed as dist
 from torch import nn
-from src.utils import contrastive_loss
+from src.loss import Loss
 
 from src.utils import (
     load_data,
@@ -178,24 +177,6 @@ def prepare_dataloader(config, tokenizer):
     
     return train_loader, valid_loader, test_loader
 
-def caculate_cosin_loss(labels, query_embeddings, context_embeddings, masks, temperature=0.25):
-    context_embeddings = context_embeddings.reshape(query_embeddings.size(0), -1, 768)
-    query_embeddings = query_embeddings.unsqueeze(1)
-    logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
-    logits = torch.cat(logits, dim=0)
-    loss = contrastive_loss(labels, logits, masks, temperature=temperature) 
-    
-    return loss, logits
-
-def caculate_dot_product_loss(labels, query_embeddings, context_embeddings, masks, temperature=8):
-    context_embeddings = context_embeddings.reshape(labels.size(0), labels.size(1), -1)
-    query_embeddings = query_embeddings.unsqueeze(-1)
-    
-    logits = torch.matmul(context_embeddings, query_embeddings).squeeze(-1)
-    loss = contrastive_loss(labels, logits, masks, temperature=temperature) 
-    
-    return loss, logits
-
 def train(config):
     init_distributed()
     if is_main_process():
@@ -211,6 +192,7 @@ def train(config):
     print("num_valid_sample: ", len(valid_loader))
     print("num_test_sample: ", len(test_loader))
     
+    loss_func = Loss()
     total = len(train_loader)
     num_train_steps = int(len(train_loader) * config.general.epoch / config.general.accumulation_steps)
     optimizer, scheduler = optimizer_scheduler(model, num_train_steps)
@@ -238,7 +220,7 @@ def train(config):
                     ids=query_ids, 
                     masks=query_masks)
                 
-                loss, logits = caculate_cosin_loss(
+                loss, logits = loss_func.caculate_cosin_loss(
                     labels=labels,
                     query_embeddings=query_embeddings,
                     context_embeddings=context_embeddings,
@@ -290,7 +272,7 @@ def train(config):
                                 ids=query_ids, 
                                 masks=query_masks)
                             
-                            loss, logits = caculate_cosin_loss(
+                            loss, logits = loss_func.caculate_cosin_loss(
                                 labels=labels,
                                 query_embeddings=query_embeddings,
                                 context_embeddings=context_embeddings,
@@ -325,7 +307,7 @@ def train(config):
                                 ids=query_ids, 
                                 masks=query_masks)
                             
-                            loss, logits = caculate_cosin_loss(
+                            loss, logits = loss_func.caculate_cosin_loss(
                                 labels=labels,
                                 query_embeddings=query_embeddings,
                                 context_embeddings=context_embeddings,
