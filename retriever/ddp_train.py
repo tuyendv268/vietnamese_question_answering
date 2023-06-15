@@ -14,6 +14,7 @@ from transformers import AutoModel
 from transformers import AutoTokenizer
 import torch.distributed as dist
 from torch import nn
+from src.utils import contrastive_loss
 
 from src.utils import (
     load_data,
@@ -175,12 +176,6 @@ def prepare_dataloader(config, tokenizer):
     
     return train_loader, valid_loader, test_loader
         
-def contrastive_loss(labels, logits, context_masks):
-        exp = torch.exp(logits)
-        exp = torch.masked_fill(input=exp, mask=~context_masks, value=0)
-        loss = -torch.log(torch.sum(torch.mul(exp, labels)) / torch.sum(exp))
-        
-        return loss
 def train(config):
     init_distributed()
     if is_main_process():

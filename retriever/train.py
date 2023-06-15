@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from transformers import RobertaModel
 from transformers import AutoModel
 from transformers import AutoTokenizer
-
+from src.utils import contrastive_loss
 
 from src.utils import (
     load_data,
@@ -152,17 +152,25 @@ def train(config):
             context_embeddings = model(
                 ids=contexts_ids, 
                 masks=masks)
+            # print(model.tokenizer.decode(contexts_ids[0]))
             
             query_embeddings = model(
                 ids=query_ids, 
                 masks=query_masks)
+            # print(model.tokenizer.decode(query_ids[0]))
+            # context_embeddings = context_embeddings.reshape(query_embeddings.size(0), -1, 768)
+            # query_embeddings = query_embeddings.unsqueeze(1)
+            
+            # logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]        
+            # logits = torch.cat(logits, dim=0)
+            # loss = contrastive_loss(labels, logits, context_masks)  
             
             context_embeddings = context_embeddings.reshape(query_embeddings.size(0), -1, 768)
-            query_embeddings = query_embeddings.unsqueeze(1)
-            logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
-            logits = torch.cat(logits, dim=0)        
-            loss = model.loss(labels, logits, context_masks)  
-
+            query_embeddings = query_embeddings.unsqueeze(-1)
+            logits = torch.matmul(context_embeddings, query_embeddings)
+            logits = logits.squeeze(-1)
+            
+            loss = contrastive_loss(labels, logits, context_masks, temperature=8) 
             train_losses.append(loss.item())
             
             loss /= config.general.accumulation_steps
@@ -182,8 +190,8 @@ def train(config):
 
                 with torch.no_grad():
                     model.eval()
-                    # bar = tqdm(enumerate(valid_loader), total=len(valid_loader))
-                    for _, data in enumerate(valid_loader):
+                    bar = tqdm(enumerate(valid_loader), total=len(valid_loader))
+                    for _, data in bar:
                         contexts_ids = data["context_ids"].to(device)
                         query_ids = data["query_ids"].to(device)
                         query_masks = data["query_masks"].to(device)
@@ -199,27 +207,33 @@ def train(config):
                             ids=query_ids, 
                             masks=query_masks)
                         
+                        # context_embeddings = context_embeddings.reshape(query_embeddings.size(0), -1, 768)
+                        # query_embeddings = query_embeddings.unsqueeze(1)
+                        # logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
+                        # logits = torch.cat(logits, dim=0)        
+                        # loss = contrastive_loss(labels, logits, context_masks)  
                         context_embeddings = context_embeddings.reshape(query_embeddings.size(0), -1, 768)
-                        query_embeddings = query_embeddings.unsqueeze(1)
-                        logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
-                        logits = torch.cat(logits, dim=0)        
-                        loss = model.loss(labels, logits, context_masks)  
+                        query_embeddings = query_embeddings.unsqueeze(-1)
+                        logits = torch.matmul(context_embeddings, query_embeddings)
+                        logits = logits.squeeze(-1)
+                        
+                        loss = contrastive_loss(labels, logits, context_masks, temperature=8) 
 
-                        y_pred = torch.softmax(logits, dim=0).squeeze(1)
+                        y_pred = torch.softmax(logits/8, dim=0).squeeze(1)
                         y_true = labels
                         
                         pair = [[label, pred] for label, pred in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]
                         valid_mrrs += pair  
                         valid_losses.append(loss.item())
                         
-                        # bar.set_postfix(loss=loss.item(), epoch=epoch)
+                        bar.set_postfix(loss=loss.item(), epoch=epoch)
                         
                 print("### start testing ")
                 with torch.no_grad():
                     test_mrrs, test_losses = [], []
                     model.eval()
-                    # bar = tqdm(enumerate(test_loader), total=len(test_loader))
-                    for _, data in enumerate(test_loader):
+                    bar = tqdm(enumerate(test_loader), total=len(test_loader))
+                    for _, data in bar:
                         contexts_ids = data["context_ids"].to(device)
                         query_ids = data["query_ids"].to(device)
                         query_masks = data["query_masks"].to(device)
@@ -236,17 +250,19 @@ def train(config):
                             masks=query_masks)
                         
                         context_embeddings = context_embeddings.reshape(query_embeddings.size(0), -1, 768)
-                        query_embeddings = query_embeddings.unsqueeze(1)
-                        logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
-                        logits = torch.cat(logits, dim=0)        
+                        query_embeddings = query_embeddings.unsqueeze(-1)
+                        logits = torch.matmul(context_embeddings, query_embeddings)
+                        logits = logits.squeeze(-1)
                         
-                        y_pred = torch.softmax(logits, dim=0).squeeze(1)
+                        loss = contrastive_loss(labels, logits, context_masks, temperature=8) 
+
+                        y_pred = torch.softmax(logits/8, dim=0).squeeze(1)
                         y_true = labels
                         
                         pair = [[label, pred] for label, pred in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]
                         test_mrrs += pair
                         test_losses.append(loss.item())
-                        # bar.set_postfix(loss=loss.item(), epoch=epoch)
+                        bar.set_postfix(loss=loss.item(), epoch=epoch)
                     
                 valid_mrrs = list(map(calculate_mrr, valid_mrrs))
                 valid_mrrs = np.array(valid_mrrs).mean()

@@ -11,17 +11,20 @@ general:
   n_worker: 1
   save_ckpt_per_n_epoch: 1 
   logging_per_steps: 10
-  evaluate_per_step: 10000
+  evaluate_per_step: 1000
   # envibert
   plm: xlmr
   accumulation_steps: 8
 
 path: 
-  pretrained_dir: /content/drive/MyDrive/pretrained
-  train_data: /content/vietnamese_question_answering/data/test/data.data
-  test_data: /content/vietnamese_question_answering/data/test/data.data
-  val_data: /content/vietnamese_question_answering/data/test/data.data
-
+  pretrained_dir: ../pretrained
+  train_data: data/test/data.data
+  test_data: data/test/data.data
+  val_data: data/test/data.data
+  # pretrained_dir: /content/drive/MyDrive/pretrained
+  # train_data: /content/vietnamese_question_answering/data/test/data.data
+  # test_data: /content/vietnamese_question_answering/data/test/data.data
+  # val_data: /content/vietnamese_question_answering/data/test/data.data
   warm_up: checkpoints/cross_1.bin
   ckpt: outputs/checkpoints
   log: outputs/logs

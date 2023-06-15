@@ -9,6 +9,14 @@ import pandas as pd
 from glob import glob
 import random
 import json
+import torch
+
+def contrastive_loss(labels, logits, context_masks, temperature=8):
+    exp = torch.exp(logits/temperature)
+    exp = torch.masked_fill(input=exp, mask=~context_masks, value=0)
+    loss = -torch.log(torch.sum(torch.mul(exp, labels)) / torch.sum(exp))
+    
+    return loss
 
 def load_stopwords(path):
     with open(path, "r", encoding="utf-8") as f:

@@ -8,6 +8,12 @@ from tqdm import tqdm
 import numpy as np
 import json
 from glob import glob
+from transformers import RobertaModel
+from transformers import AutoModel
+from transformers import AutoTokenizer
+from importlib.machinery import SourceFileLoader
+import torch
+from omegaconf import OmegaConf
 
 def gen_hltar_data(in_path, out_path):
     data, passages = load_data(in_path)
@@ -66,11 +72,42 @@ def gen_hltar_data(in_path, out_path):
         np.save(_path, sample, allow_pickle=True)
 
         index += 1
+def init_model_and_tokenizer(config):
+    AUTH_TOKEN = "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"
+    
+    if config.general.plm == "envibert":
+        tokenizer = SourceFileLoader(
+            "envibert.tokenizer", 
+            os.path.join(config.path.pretrained_dir,'envibert_tokenizer.py')) \
+                .load_module().RobertaTokenizer(config.path.pretrained_dir)
+        plm = RobertaModel.from_pretrained(config.path.pretrained_dir)
+    elif config.general.plm == "xlmr":
+        tokenizer = AutoTokenizer.from_pretrained(
+            'nguyenvulebinh/vi-mrc-base', cache_dir=config.path.pretrained_dir, use_auth_token=AUTH_TOKEN)
+        plm = AutoModel.from_pretrained(
+            "nguyenvulebinh/vi-mrc-base", cache_dir=config.path.pretrained_dir, use_auth_token=AUTH_TOKEN)
+    
+    model = Cross_Model(
+        max_length=config.general.max_length, 
+        batch_size=config.general.batch_size,
+        device=config.general.device,
+        tokenizer=tokenizer, model=plm)
+    
+    if os.path.exists(config.path.warm_up):
+        model.load_state_dict(torch.load(config.path.warm_up, map_location="cpu"))
+        print(f"load model state dict from {config.path.warm_up}")
+        
+    return model, tokenizer
+
 if __name__ == "__main__":
     input_dir = "/home/tuyendv/Desktop/mbf_ir/data/hltar-raw-data/test"
     output_dir = "/home/tuyendv/Desktop/mbf_ir/data/hltar-data/test"
-    reranker_model = Cross_Model(model_name="envibert")
-
+    config_path = "config.yaml"
+    
+    config = OmegaConf.load(config_path)
+    reranker_model, tokenizer = init_model_and_tokenizer(config)
+    reranker_model.eval()
+    
     for input_file in glob(f"{input_dir}/*.json"):
         gen_hltar_data(
             in_path=input_file, 

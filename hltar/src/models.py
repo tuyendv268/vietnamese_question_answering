@@ -19,44 +19,46 @@ from src.dataset import (
 AUTH_TOKEN = "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"
 
 class Cross_Model(nn.Module):
-    def __init__(self,max_length=384, batch_size=16, device="cpu", model_name="xlmr"):
+    def __init__(self, model, tokenizer, max_length=384, droprate=0.2, batch_size=16, device="cpu"):
         super(Cross_Model, self).__init__()
         self.max_length = max_length
         self.batch_size = batch_size
+        
+        self.model = model
         self.device = device
+        total_layer = len(self.model.encoder.layer)
+        num_freeze_layer = int(2*total_layer/3)
+        print(f"freezing {num_freeze_layer} layer")
+        modules = [self.model.embeddings, self.model.encoder.layer[:num_freeze_layer]]
         
-        if model_name == "envibert" :
-            pretrained='../pretrained'
-            self.tokenizer = SourceFileLoader(
-                "envibert.tokenizer", 
-                os.path.join(pretrained,'envibert_tokenizer.py')) \
-                    .load_module().RobertaTokenizer(pretrained)
-            self.model = RobertaModel.from_pretrained(pretrained)
-            
-        elif model_name == "xlmr":
-            self.tokenizer = AutoTokenizer.from_pretrained('nguyenvulebinh/vi-mrc-base', cache_dir="pretrained", use_auth_token=AUTH_TOKEN)
-
-            self.model = AutoModel.from_pretrained(
-                "nguyenvulebinh/vi-mrc-base", cache_dir="pretrained", use_auth_token=AUTH_TOKEN)
-
-            modules = [self.model.embeddings, self.model.encoder.layer[:6]]
-            
-            for module in modules:
-                for param in module.parameters():
-                    param.requires_grad = False
+        for module in modules:
+            for param in module.parameters():
+                param.requires_grad = False
+                
+        self.tokenizer = tokenizer
         
-        self.dropout = nn.Dropout(0.3)
-        self.fc = nn.Linear(768, 1).to(self.device)
+        self.dropout = nn.Dropout(droprate)
+        self.fc = nn.Linear(768, 1)
+        self.cre = torch.nn.CrossEntropyLoss()
 
-    def forward(self, ids, masks):
-        # out = self.model(input_ids=ids,
-        #                  attention_mask=masks)
-        # out = out.last_hidden_state[:, 0]
-        out = torch.randn((ids.shape[0], 768))
-            
+    def forward(self, ids, masks, labels=None, context_masks=None):
+        out = self.model(input_ids=ids, attention_mask=masks)
+        out = out.last_hidden_state[:, 0]
+        
         embedding = self.dropout(out)
-        score = self.fc(embedding)
-        return score, embedding
+        logits = self.fc(embedding)
+        if labels is not None:
+            logits = logits.reshape(labels.size(0), labels.size(1))
+            return logits, self.loss(labels=labels, logits=logits, context_masks=context_masks)
+        
+        return logits
+    
+    def loss(self, labels, logits, context_masks):
+        exp = torch.exp(logits)
+        exp = torch.masked_fill(input=exp, mask=~context_masks, value=0)
+        loss = -torch.log(torch.sum(torch.mul(exp, labels)) / torch.sum(exp))
+        
+        return loss
     
     @torch.no_grad()
     def ranking(self, question, texts):
