@@ -1,5 +1,5 @@
 general:
-  batch_size: 4
+  batch_size: 6
   device: cpu
   mode: train
   epoch: 2
