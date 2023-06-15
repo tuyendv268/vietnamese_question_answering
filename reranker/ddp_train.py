@@ -242,8 +242,7 @@ def train(config):
                 optimizer.zero_grad()
                 scheduler.step()
                 scaler.update()
-            step += 1
-            
+                
             if is_main_process() and step % config.general.logging_per_steps == 0:
                 message = {
                     "loss":round(np.mean(np.array(train_losses)), 3),
@@ -342,7 +341,8 @@ def train(config):
                         "valid_loss": np.mean(np.array(valid_losses))},
                     global_step=step
                 )
-        
+                model.train()
+            step += 1
 def calculate_mrr(pair):
     return mrr_score(*pair)
 

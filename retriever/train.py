@@ -297,6 +297,8 @@ def train(config):
                         "valid_loss": np.mean(np.array(valid_losses))},
                     global_step=step
                 )
+                
+                model.train()
             step += 1
         
 def calculate_mrr(pair):
