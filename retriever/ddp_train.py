@@ -296,7 +296,7 @@ def train(config):
                                 context_embeddings=context_embeddings,
                                 masks=masks,
                             )                            
-                        y_pred = torch.softmax(logits, dim=0).squeeze(1)
+                        y_pred = logits
                         y_true = labels
                         
                         pair = [[label, pred] for label, pred in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]
@@ -331,7 +331,7 @@ def train(config):
                                 masks=masks,
                             )
 
-                        y_pred = torch.softmax(logits, dim=0).squeeze(1)
+                        y_pred = logits
                         y_true = labels
                         
                         pair = [[label, pred] for label, pred in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]
