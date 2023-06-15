@@ -175,12 +175,6 @@ def train(config):
                 ids=query_ids, 
                 masks=query_masks)
                         
-            # context_embeddings = context_embeddings.reshape(query_embeddings.size(0), -1, 768)
-            # query_embeddings = query_embeddings.unsqueeze(1)
-            # logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
-            # logits = torch.cat(logits, dim=0)
-            # loss = contrastive_loss(labels, logits, masks)  
-            
             loss, logits = caculate_dot_product_loss(
                 labels=labels,
                 query_embeddings=query_embeddings,
