@@ -178,12 +178,12 @@ def prepare_dataloader(config, tokenizer):
     
     return train_loader, valid_loader, test_loader
 
-def caculate_cosin_loss(labels, query_embeddings, context_embeddings, masks):
+def caculate_cosin_loss(labels, query_embeddings, context_embeddings, masks, temperature=0.25):
     context_embeddings = context_embeddings.reshape(query_embeddings.size(0), -1, 768)
     query_embeddings = query_embeddings.unsqueeze(1)
     logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
     logits = torch.cat(logits, dim=0)
-    loss = contrastive_loss(labels, logits, masks) 
+    loss = contrastive_loss(labels, logits, masks, temperature=temperature) 
     
     return loss, logits
 
@@ -238,7 +238,7 @@ def train(config):
                     ids=query_ids, 
                     masks=query_masks)
                 
-                loss, logits = caculate_dot_product_loss(
+                loss, logits = caculate_cosin_loss(
                     labels=labels,
                     query_embeddings=query_embeddings,
                     context_embeddings=context_embeddings,
@@ -290,7 +290,7 @@ def train(config):
                                 ids=query_ids, 
                                 masks=query_masks)
                             
-                            loss, logits = caculate_dot_product_loss(
+                            loss, logits = caculate_cosin_loss(
                                 labels=labels,
                                 query_embeddings=query_embeddings,
                                 context_embeddings=context_embeddings,
@@ -325,7 +325,7 @@ def train(config):
                                 ids=query_ids, 
                                 masks=query_masks)
                             
-                            loss, logits = caculate_dot_product_loss(
+                            loss, logits = caculate_cosin_loss(
                                 labels=labels,
                                 query_embeddings=query_embeddings,
                                 context_embeddings=context_embeddings,
