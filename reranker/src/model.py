@@ -42,7 +42,8 @@ class Cross_Model(nn.Module):
         embedding = self.dropout(out)
         logits = self.fc(embedding)
         if labels is not None:
-            logits = logits.reshape(labels.size(0), labels.size(1))
+            # logits = logits.reshape(labels.size(0), labels.size(1))
+            logits = logits.view(labels.size(0), labels.size(1))
             return logits, self.loss(labels=labels, logits=logits, context_masks=context_masks)
         
         return logits

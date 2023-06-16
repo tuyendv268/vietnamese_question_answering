@@ -19,7 +19,7 @@ from src.dataset import (
 )
 
 class Dual_Model(nn.Module):
-    def __init__(self, model, tokenizer, max_length=384, droprate=0.2, batch_size=16, device="cpu"):
+    def __init__(self, model, tokenizer, max_length=384, droprate=0.1, batch_size=16, device="cpu"):
         super(Dual_Model, self).__init__()
         self.max_length = max_length
         self.batch_size = batch_size
