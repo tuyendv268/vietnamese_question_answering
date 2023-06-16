@@ -9,9 +9,8 @@ general:
   test_size: 0.1
   max_length: 384
   n_worker: 1
-  save_ckpt_per_n_epoch: 1 
   logging_per_steps: 1000
-  save_per_steps: 10000
+  save_per_steps: 1
   evaluate_per_step: 10000
   # envibert
   plm: xlmr
@@ -23,7 +22,7 @@ path:
   test_data: data/val/data.data
   val_data: data/val/data.data
 
-  warm_up: checkpoints/cross_1.bin
+  warm_up: outputs/checkpoints/cross_epoch=0_step=0.bin
   ckpt: outputs/checkpoints
   log: outputs/logs
   bm25: outputs/bm25

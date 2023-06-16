@@ -127,12 +127,7 @@ def init_model_and_tokenizer(config):
         max_length=config.general.max_length, 
         batch_size=config.general.batch_size,
         device=config.general.device,
-        tokenizer=tokenizer, model=plm)
-    
-    if os.path.exists(config.path.warm_up):
-        model.load_state_dict(torch.load(config.path.warm_up, map_location="cpu"))
-        print(f"load model state dict from {config.path.warm_up}")
-        
+        tokenizer=tokenizer, model=plm)        
     return model, tokenizer
 
 
@@ -189,14 +184,9 @@ def prepare_dataloader(config, tokenizer):
 def train(config):    
     init_distributed()
     if is_main_process():
-        writer = init_directories_and_logger(config)        
+        writer = init_directories_and_logger(config)   
+             
     model, tokenizer = init_model_and_tokenizer(config)
-    
-    model = model.cuda()
-    
-    local_rank = int(os.environ['LOCAL_RANK'])
-    model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], find_unused_parameters=True)
-
     train_loader, valid_loader, test_loader = prepare_dataloader(config=config, tokenizer=tokenizer)
     print("num_train_sample: ", len(train_loader))
     print("num_valid_sample: ", len(valid_loader))
@@ -205,6 +195,11 @@ def train(config):
     total = len(train_loader)
     num_train_steps = int(len(train_loader) * config.general.epoch / config.general.accumulation_steps)
     optimizer, scheduler = optimizer_scheduler(model, num_train_steps)
+    if os.path.exists(config.path.warm_up):
+        model, optimizer = load(path=config.path.warm_up, model=model, optimizer=optimizer)
+        
+    model = model.cuda()
+    model = nn.parallel.DistributedDataParallel(model, device_ids=[int(os.environ['LOCAL_RANK'])], find_unused_parameters=True)
     scaler = torch.cuda.amp.GradScaler(enabled=True)
     
     print("start training")
@@ -243,7 +238,8 @@ def train(config):
                 scheduler.step()
                 scaler.update()
             if is_main_process() and (step+1) % config.general.save_per_steps == 0:
-                torch.save(model.state_dict(), f"{config.path.ckpt}/{config.general.model_type}_epoch={epoch}_step={step}.bin")
+                path = f"{config.path.ckpt}/{config.general.model_type}_epoch={epoch}_step={step}.bin"
+                save(path=path, optimizer=optimizer, model=model)
 
             if is_main_process() and (step+1) % config.general.logging_per_steps == 0:
                 message = {
@@ -345,6 +341,29 @@ def train(config):
                 )
                 model.train()
             step += 1
+            
+def save(path, optimizer, model):
+    state_dict = {
+        "model":model.module.state_dict(),
+        "optimizer":optimizer.state_dict()
+    }
+    
+    torch.save(state_dict ,path)
+    print(f'saved state dict to {path}')
+    
+def load(path, optimizer, model):
+    state_dict = torch.load(path, map_location="cpu")
+    model_state_dict = state_dict["model"]
+    optimizer_state_dict = state_dict["optimizer"]
+    
+    # model_state_dict = {"module.".join(key.split("module.")[1:]):value for key, value in model_state_dict.items()}
+    model.load_state_dict(model_state_dict)
+    optimizer.load_state_dict(optimizer_state_dict)
+    
+    print(f"loaded model and optimizer state dict from {path}")
+    
+    return model, optimizer
+
 def calculate_mrr(pair):
     return mrr_score(*pair)
 
