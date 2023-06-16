@@ -194,11 +194,15 @@ def train(config):
     
     total = len(train_loader)
     num_train_steps = int(len(train_loader) * config.general.epoch / config.general.accumulation_steps)
+    
+    model = model.cuda()
     optimizer, scheduler = optimizer_scheduler(model, num_train_steps)
     if os.path.exists(config.path.warm_up):
-        model, optimizer = load(path=config.path.warm_up, model=model, optimizer=optimizer)
-        
-    model = model.cuda()
+        state_dict = torch.load(config.path.warm_up)
+        model.load_state_dict(state_dict["model"])
+        optimizer.load_state_dict(state_dict["optimizer"])
+        print(f"loaded model and optimizer state dict from {config.path.warm_up}")
+
     model = nn.parallel.DistributedDataParallel(model, device_ids=[int(os.environ['LOCAL_RANK'])], find_unused_parameters=True)
     scaler = torch.cuda.amp.GradScaler(enabled=True)
     
@@ -352,7 +356,7 @@ def save(path, optimizer, model):
     print(f'saved state dict to {path}')
     
 def load(path, optimizer, model):
-    state_dict = torch.load(path, map_location="cpu")
+    state_dict = torch.load(path)
     model_state_dict = state_dict["model"]
     optimizer_state_dict = state_dict["optimizer"]
     
@@ -361,7 +365,6 @@ def load(path, optimizer, model):
     optimizer.load_state_dict(optimizer_state_dict)
     
     print(f"loaded model and optimizer state dict from {path}")
-    
     return model, optimizer
 
 def calculate_mrr(pair):
