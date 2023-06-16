@@ -50,7 +50,8 @@ class Cross_Model(nn.Module):
     def loss(self, labels, logits, context_masks):
         exp = torch.exp(logits)
         exp = torch.masked_fill(input=exp, mask=~context_masks, value=0)
-        loss = -torch.log(torch.sum(torch.mul(exp, labels)) / torch.sum(exp))
+        loss = -torch.log(torch.sum(torch.mul(exp, labels), dim=1) / torch.sum(exp, dim=1))
+        loss = torch.mean(loss)
         
         return loss
     
