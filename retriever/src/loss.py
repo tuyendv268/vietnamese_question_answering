@@ -15,10 +15,11 @@ class Loss(Module):
         return loss
     
     def caculate_cosin_loss(self, labels, query_embeddings, context_embeddings, masks, temperature=1):
-        context_embeddings = context_embeddings.reshape(labels.size(0), labels.size(1), 768)
-        query_embeddings = query_embeddings.unsqueeze(1)
-        logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
-        logits = torch.cat(logits, dim=0)
+        batch_size, n_passage_per_query = labels.shape[0], labels.shape[1]
+        assert labels[:,0].sum() == batch_size
+
+        logits = pairwise_cosine_similarity(query_embeddings, context_embeddings)
+        labels = torch.arange(0, batch_size, device=logits.device) * n_passage_per_query
         loss = self.contrastive_loss(labels, logits, masks, temperature=temperature) 
         
         return loss, logits
@@ -28,8 +29,13 @@ class Loss(Module):
         assert labels[:,0].sum() == batch_size
 
         logits = torch.matmul(query_embeddings, context_embeddings.transpose(0, 1)).squeeze(-1)
-        labels = torch.arange(0, batch_size, device=logits.device) * n_passage_per_query
+        _labels = torch.arange(0, batch_size, device=logits.device) * n_passage_per_query
         
-        loss = self.contrastive_loss(labels, logits, masks, temperature=temperature) 
+        loss = self.contrastive_loss(_labels, logits, masks, temperature=temperature) 
         
-        return loss, logits
+        pred_logits = []
+        for i in range(labels.size(0)):
+            pred_logits.append(logits[i][i*n_passage_per_query:(i+1)*n_passage_per_query])
+        
+        pred_logits = torch.stack(pred_logits, dim=0)
+        return loss, pred_logits

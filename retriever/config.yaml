@@ -10,16 +10,16 @@ general:
   max_length: 384
   n_worker: 2
   save_ckpt_per_n_epoch: 1 
-  logging_per_steps: 1000
-  evaluate_per_step: 2000
+  logging_per_steps: 1
+  evaluate_per_step: 1
   # envibert
   plm: envibert
   accumulation_steps: 8
 
 path: 
   pretrained_dir: ../pretrained
-  train_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/val/data.data
-  test_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/val/data.data
+  train_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/test/data.data
+  test_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/test/data.data
   val_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/test/data.data
   # pretrained_dir: /content/drive/MyDrive/pretrained
   # train_data: /content/vietnamese_question_answering/data/train/data.data

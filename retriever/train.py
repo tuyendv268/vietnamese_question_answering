@@ -168,12 +168,12 @@ def train(config):
             
             loss /= config.general.accumulation_steps
             loss.backward()
-
+            step += 1
+            
             if (step + 1) % config.general.accumulation_steps == 0:
                 optimizer.step()
                 optimizer.zero_grad()
                 scheduler.step()
-                
             bar.set_postfix(loss=loss.item()*config.general.accumulation_steps, epoch=epoch, lr=scheduler.get_last_lr())
             if (step+1) % config.general.logging_per_steps == 0:
                 torch.save(model.state_dict(), f"{config.path.ckpt}/{config.general.model_type}_{epoch}.bin")
@@ -212,7 +212,8 @@ def train(config):
                         pair = [[label, pred] for label, pred in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]
                         valid_mrrs += pair  
                         valid_losses.append(loss.item())
-                        
+                        if _ == 10:
+                            break
                         bar.set_postfix(loss=loss.item(), epoch=epoch)
                         
                 print("### start testing ")
@@ -249,6 +250,8 @@ def train(config):
                         test_mrrs += pair
                         test_losses.append(loss.item())
                         bar.set_postfix(loss=loss.item(), epoch=epoch)
+                        if _ == 10:
+                            break
                     
                 valid_mrrs = list(map(calculate_mrr, valid_mrrs))
                 valid_mrrs = np.array(valid_mrrs).mean()
@@ -276,7 +279,6 @@ def train(config):
                 )
                 
                 model.train()
-            step += 1
         
 def calculate_mrr(pair):
     return mrr_score(*pair)
