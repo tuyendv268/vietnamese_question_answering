@@ -158,7 +158,7 @@ def train(config):
                 ids=query_ids, 
                 masks=query_masks)
                         
-            loss, logits = loss_func.caculate_dot_product_loss(
+            loss, logits = loss_func.caculate_cosin_loss(
                 labels=labels,
                 query_embeddings=query_embeddings,
                 context_embeddings=context_embeddings,
@@ -200,7 +200,7 @@ def train(config):
                             ids=query_ids, 
                             masks=query_masks)
                         
-                        loss, logits = loss_func.caculate_dot_product_loss(
+                        loss, logits = loss_func.caculate_cosin_loss(
                             labels=labels,
                             query_embeddings=query_embeddings,
                             context_embeddings=context_embeddings,
@@ -235,7 +235,7 @@ def train(config):
                             ids=query_ids, 
                             masks=query_masks)
                         
-                        loss, logits = loss_func.caculate_dot_product_loss(
+                        loss, logits = loss_func.caculate_cosin_loss(
                             labels=labels,
                             query_embeddings=query_embeddings,
                             context_embeddings=context_embeddings,
