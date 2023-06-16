@@ -42,7 +42,7 @@ def init_directories_and_logger(config):
     
     log_dir = f"{config.path.log}/{current_time}"
     if not os.path.exists(log_dir):
-        os.mkdir(log_dir)
+        os.makedirs(log_dir)
         print(f"logging into {log_dir}")
     else:
         raise Exception("current log dir is exist !!!")
