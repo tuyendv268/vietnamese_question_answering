@@ -10,10 +10,11 @@ general:
   max_length: 384
   n_worker: 1
   save_ckpt_per_n_epoch: 1 
-  logging_per_steps: 10
+  logging_per_steps: 1000
+  save_per_steps: 10000
   evaluate_per_step: 10000
   # envibert
-  plm: envibert
+  plm: xlmr
   accumulation_steps: 8
 
 path: 

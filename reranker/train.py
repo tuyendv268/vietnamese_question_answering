@@ -164,9 +164,10 @@ def train(config):
                 scheduler.step()
                 
             bar.set_postfix(loss=loss.item(), epoch=epoch, lr=scheduler.get_last_lr())
-            if step % config.general.logging_per_steps == 0:
-                torch.save(model.state_dict(), f"{config.path.ckpt}/{config.general.model_type}_{epoch}.bin")
-            
+            if step % config.general.save_per_steps == 0:
+                torch.save(model.state_dict(), f"{config.path.ckpt}/{config.general.model_type}_epoch={epoch}_step={step}.bin")
+                
+            if step % config.general.logging_per_steps == 0:            
                 print("### start validate ")
                 valid_mrrs, valid_losses = [], []
 

@@ -242,8 +242,10 @@ def train(config):
                 optimizer.zero_grad()
                 scheduler.step()
                 scaler.update()
-                
-            if is_main_process() and step % config.general.logging_per_steps == 0:
+            if is_main_process() and (step+1) % config.general.save_per_steps == 0:
+                torch.save(model.state_dict(), f"{config.path.ckpt}/{config.general.model_type}_epoch={epoch}_step={step}.bin")
+
+            if is_main_process() and (step+1) % config.general.logging_per_steps == 0:
                 message = {
                     "loss":round(np.mean(np.array(train_losses)), 3),
                     "step":step,
