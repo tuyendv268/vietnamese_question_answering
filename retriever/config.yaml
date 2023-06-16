@@ -10,8 +10,8 @@ general:
   max_length: 384
   n_worker: 2
   save_ckpt_per_n_epoch: 1 
-  logging_per_steps: 1
-  evaluate_per_step: 1
+  logging_per_steps: 1000
+  evaluate_per_step: 1000
   # envibert
   plm: envibert
   accumulation_steps: 8

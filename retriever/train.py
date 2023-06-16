@@ -212,8 +212,6 @@ def train(config):
                         pair = [[label, pred] for label, pred in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]
                         valid_mrrs += pair  
                         valid_losses.append(loss.item())
-                        if _ == 10:
-                            break
                         bar.set_postfix(loss=loss.item(), epoch=epoch)
                         
                 print("### start testing ")
@@ -250,8 +248,6 @@ def train(config):
                         test_mrrs += pair
                         test_losses.append(loss.item())
                         bar.set_postfix(loss=loss.item(), epoch=epoch)
-                        if _ == 10:
-                            break
                     
                 valid_mrrs = list(map(calculate_mrr, valid_mrrs))
                 valid_mrrs = np.array(valid_mrrs).mean()
