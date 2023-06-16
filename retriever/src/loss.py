@@ -8,13 +8,9 @@ class Loss(Module):
         self.cre = torch.nn.CrossEntropyLoss()
         
     def contrastive_loss(self, labels, logits, masks, temperature=1):
-        # exp = torch.exp(logits/temperature)
-        # exp = torch.masked_fill(input=exp, mask=~masks, value=0)
-        # loss = -torch.log(torch.sum(torch.mul(exp, labels), dim=1) / torch.sum(exp, dim=1))
-        # loss = torch.mean(loss)
         logits = logits/temperature
-        logits = torch.masked_fill(input=logits, mask=~masks, value=-1000)
-        loss = self.cre(logits, labels.float())
+        logits = torch.masked_fill(input=torch.exp(logits), mask=~masks.flatten(), value=-1000)
+        loss = self.cre(logits, labels)
         
         return loss
     
@@ -28,10 +24,12 @@ class Loss(Module):
         return loss, logits
 
     def caculate_dot_product_loss(self, labels, query_embeddings, context_embeddings, masks, temperature=4):
-        context_embeddings = context_embeddings.reshape(labels.size(0), labels.size(1), -1)
-        query_embeddings = query_embeddings.unsqueeze(-1)
+        batch_size, n_passage_per_query = labels.shape[0], labels.shape[1]
+        assert labels[:,0].sum() == batch_size
+
+        logits = torch.matmul(query_embeddings, context_embeddings.transpose(0, 1)).squeeze(-1)
+        labels = torch.arange(0, batch_size, device=logits.device) * n_passage_per_query
         
-        logits = torch.matmul(context_embeddings, query_embeddings).squeeze(-1)
         loss = self.contrastive_loss(labels, logits, masks, temperature=temperature) 
         
         return loss, logits

@@ -146,15 +146,12 @@ class QA_Dataset(Dataset):
             contexts.append(context["passage_text"])
             index+=1
         
-        # print("#############################")
-        # print("original query: ", query)
-        # print("original positive_index: ", positive_index)
-        # print("original positive context: ", contexts[positive_index])
-        # print("original negative context: ", contexts[0])
-        # print("=============================")
-        # print("original contexts: ", "\n+++++++\n".join(contexts))
-        # print("#############################")
-                    
+        # hard coding :))
+        positive_sample = contexts[positive_index]
+        contexts.remove(positive_sample)
+        positive_index = 0
+        contexts.insert(positive_index, positive_sample)
+
         return self._parse_sample(
             query=query,
             positive_index=positive_index,
@@ -224,19 +221,6 @@ class QA_Dataset(Dataset):
         query_masks = torch.vstack(query_masks)
         labels = torch.nn.functional.one_hot(_labels, max_context)
         masks = torch.vstack(masks).bool()
-        
-        # print('#####################')
-        # print("labels: ", _labels)
-        # print("query_ids: ", self.tokenizer.decode(query_ids[0]).replace("▁", ""))
-        # print("context_ids: ", self.tokenizer.decode(context_ids[_labels[0]]).replace("▁", ""))
-        # print('#####################')
-        
-        # print("context_ids: ", context_ids.shape, context_ids)
-        # print("context_masks: ", context_masks.shape, context_masks)
-        # print("query_ids: ", query_ids.shape, query_ids)
-        # print("query_masks: ", query_masks.shape, query_masks)
-        # print("masks: ", masks.shape, masks)
-        # print("labels: ", labels.shape, labels)
         
         return {
             "context_ids": context_ids,

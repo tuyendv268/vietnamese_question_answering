@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from transformers import RobertaModel
 from transformers import AutoModel
 from transformers import AutoTokenizer
-from src.utils import contrastive_loss
+from src.loss import Loss
 
 from src.utils import (
     load_data,
@@ -29,24 +29,6 @@ from transformers import AutoTokenizer
 from transformers import AutoModel, AutoConfig
 
 device = "cpu" if not torch.cuda.is_available() else "cuda"
-
-def caculate_cosin_loss(labels, query_embeddings, context_embeddings, masks):
-    context_embeddings = context_embeddings.reshape(query_embeddings.size(0), -1, 768)
-    query_embeddings = query_embeddings.unsqueeze(1)
-    logits = [pairwise_cosine_similarity(x, y) for x, y in zip(query_embeddings, context_embeddings)]            
-    logits = torch.cat(logits, dim=0)
-    loss = contrastive_loss(labels, logits, masks) 
-    
-    return loss, logits
-
-def caculate_dot_product_loss(labels, query_embeddings, context_embeddings, masks, temperature=8):
-    context_embeddings = context_embeddings.reshape(labels.size(0), labels.size(1), -1)
-    query_embeddings = query_embeddings.unsqueeze(-1)
-    
-    logits = torch.matmul(context_embeddings, query_embeddings).squeeze(-1)
-    loss = contrastive_loss(labels, logits, masks, temperature=temperature)
-    
-    return loss, logits
 
 def init_directories_and_logger(config):
     if not os.path.exists(config.path.ckpt):
@@ -152,6 +134,7 @@ def train(config):
     total = len(train_loader)
     num_train_steps = int(len(train_loader) * config.general.epoch / config.general.accumulation_steps)
     optimizer, scheduler = optimizer_scheduler(model, num_train_steps)
+    loss_func = Loss()
     
     print("### start training")
     step = 0
@@ -175,7 +158,7 @@ def train(config):
                 ids=query_ids, 
                 masks=query_masks)
                         
-            loss, logits = caculate_dot_product_loss(
+            loss, logits = loss_func.caculate_dot_product_loss(
                 labels=labels,
                 query_embeddings=query_embeddings,
                 context_embeddings=context_embeddings,
@@ -217,7 +200,7 @@ def train(config):
                             ids=query_ids, 
                             masks=query_masks)
                         
-                        loss, logits = caculate_dot_product_loss(
+                        loss, logits = loss_func.caculate_dot_product_loss(
                             labels=labels,
                             query_embeddings=query_embeddings,
                             context_embeddings=context_embeddings,
@@ -253,7 +236,7 @@ def train(config):
                             ids=query_ids, 
                             masks=query_masks)
                         
-                        loss, logits = caculate_dot_product_loss(
+                        loss, logits = loss_func.caculate_dot_product_loss(
                             labels=labels,
                             query_embeddings=query_embeddings,
                             context_embeddings=context_embeddings,

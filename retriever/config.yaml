@@ -13,18 +13,18 @@ general:
   logging_per_steps: 1000
   evaluate_per_step: 2000
   # envibert
-  plm: xlmr
+  plm: envibert
   accumulation_steps: 8
 
 path: 
-  # pretrained_dir: ../pretrained
-  # train_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/test/data.data
-  # test_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/test/data.data
-  # val_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/test/data.data
-  pretrained_dir: /content/drive/MyDrive/pretrained
-  train_data: /content/vietnamese_question_answering/data/train/data.data
-  test_data: /content/vietnamese_question_answering/data/test/data.data
-  val_data: /content/vietnamese_question_answering/data/test/data.data
+  pretrained_dir: ../pretrained
+  train_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/val/data.data
+  test_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/val/data.data
+  val_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/test/data.data
+  # pretrained_dir: /content/drive/MyDrive/pretrained
+  # train_data: /content/vietnamese_question_answering/data/train/data.data
+  # test_data: /content/vietnamese_question_answering/data/test/data.data
+  # val_data: /content/vietnamese_question_answering/data/test/data.data
   warm_up: checkpoints/cross_1.bin
   ckpt: outputs/checkpoints
   log: outputs/logs
