@@ -28,7 +28,7 @@ class Dual_Model(nn.Module):
         
         self.model = model
         # self.freeze(n_layer=12)
-        self.linear = nn.Linear(768, 256)
+        self.linear = nn.Linear(768, 768)
         torch.nn.init.xavier_uniform_(self.linear.weight)
 
     def freeze(self, n_layer):
@@ -69,12 +69,12 @@ class Dual_Model(nn.Module):
         )
         
         return loss, logits, labels
+
     def dot_product(self, labels, query_embeddings, context_embeddings, masks, temperature=8):
         batch_size, n_passage_per_query = labels.shape[0], labels.shape[1]
         assert labels[:,0].sum() == batch_size
         
         logits = torch.matmul(query_embeddings, context_embeddings.transpose(0, 1))
-        print(logits)
         labels = torch.arange(0, batch_size, device=logits.device) * n_passage_per_query
         
         loss = self.contrastive_loss(labels, logits, masks, temperature=temperature) 

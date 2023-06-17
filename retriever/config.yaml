@@ -1,5 +1,5 @@
 general:
-  batch_size: 2
+  batch_size: 1
   device: cpu
   mode: train
   epoch: 8
@@ -9,9 +9,9 @@ general:
   test_size: 0.1
   max_length: 384
   n_worker: 0
-  logging_per_steps: 1000
-  save_per_steps: 10000
-  evaluate_per_step: 10000
+  logging_per_steps: 5000
+  save_per_steps: 50000
+  evaluate_per_step: 50000
   # envibert / xlm-roberta-base / vi-mrc-base
   plm: xlm-roberta-base
   accumulation_steps: 8
