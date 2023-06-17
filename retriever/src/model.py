@@ -27,8 +27,8 @@ class Dual_Model(nn.Module):
         self.tokenizer = tokenizer
         
         self.model = model
-        # self.freeze(n_layer=10)
-        self.linear = nn.Linear(768, 768)
+        # self.freeze(n_layer=12)
+        self.linear = nn.Linear(768, 256)
         torch.nn.init.xavier_uniform_(self.linear.weight)
 
     def freeze(self, n_layer):
@@ -60,13 +60,25 @@ class Dual_Model(nn.Module):
         query_embeddings = self.encode_query(query_ids=query_ids, query_masks=query_masks)
         context_embeddings = self.encode_passage(contexts_ids=contexts_ids, context_masks=context_masks)
         
-        loss, logits, labels = self.pairwise_cosine(
+        loss, logits, labels = self.dot_product(
             labels=labels,
             query_embeddings=query_embeddings,
             context_embeddings=context_embeddings,
             masks=masks,
-            temperature=1
+            temperature=8
         )
+        
+        return loss, logits, labels
+    def dot_product(self, labels, query_embeddings, context_embeddings, masks, temperature=8):
+        batch_size, n_passage_per_query = labels.shape[0], labels.shape[1]
+        assert labels[:,0].sum() == batch_size
+        
+        logits = torch.matmul(query_embeddings, context_embeddings.transpose(0, 1))
+        print(logits)
+        labels = torch.arange(0, batch_size, device=logits.device) * n_passage_per_query
+        
+        loss = self.contrastive_loss(labels, logits, masks, temperature=temperature) 
+        labels = torch.nn.functional.one_hot(labels, num_classes=n_passage_per_query*batch_size)
         
         return loss, logits, labels
     

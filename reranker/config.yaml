@@ -8,12 +8,12 @@ general:
   valid_size: 0.01
   test_size: 0.1
   max_length: 384
-  n_worker: 1
+  n_worker: 0
   logging_per_steps: 1000
-  save_per_steps: 10000
-  evaluate_per_step: 10000
-  # envibert
-  plm: xlmr
+  save_per_steps: 5000
+  evaluate_per_step: 5000
+  # envibert / xlm-roberta-base / vi-mrc-base
+  plm: xlm-roberta-base
   accumulation_steps: 8
 
 path: 
@@ -21,8 +21,11 @@ path:
   train_data: data/val/data.data
   test_data: data/val/data.data
   val_data: data/val/data.data
-
-  warm_up: outputs/checkpoints/cross_epoch=0_step=0.bin
+  # pretrained_dir: /content/drive/MyDrive/pretrained
+  # train_data: /content/vietnamese_question_answering/data/train/data.data
+  # test_data: /content/vietnamese_question_answering/data/test/data.data
+  # val_data: /content/vietnamese_question_answering/data/test/data.data
+  warm_up: checkpoints/cross_1.bin
   ckpt: outputs/checkpoints
   log: outputs/logs
   bm25: outputs/bm25

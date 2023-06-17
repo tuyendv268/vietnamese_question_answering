@@ -117,12 +117,19 @@ def init_model_and_tokenizer(config):
             os.path.join(config.path.pretrained_dir,'envibert_tokenizer.py')) \
                 .load_module().RobertaTokenizer(config.path.pretrained_dir)
         plm = RobertaModel.from_pretrained(config.path.pretrained_dir)
-    elif config.general.plm == "xlmr":
+        
+    elif config.general.plm == "xlm-roberta-base":
+        tokenizer = AutoTokenizer.from_pretrained(
+            'xlm-roberta-base', cache_dir=config.path.pretrained_dir, use_auth_token=AUTH_TOKEN)
+        plm = AutoModel.from_pretrained(
+            "xlm-roberta-base", cache_dir=config.path.pretrained_dir, use_auth_token=AUTH_TOKEN)
+        
+    elif config.general.plm == "vi-mrc-base":
         tokenizer = AutoTokenizer.from_pretrained(
             'nguyenvulebinh/vi-mrc-base', cache_dir=config.path.pretrained_dir, use_auth_token=AUTH_TOKEN)
         plm = AutoModel.from_pretrained(
             "nguyenvulebinh/vi-mrc-base", cache_dir=config.path.pretrained_dir, use_auth_token=AUTH_TOKEN)
-
+    
     model = Cross_Model(
         max_length=config.general.max_length, 
         batch_size=config.general.batch_size,

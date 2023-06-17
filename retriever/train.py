@@ -174,9 +174,11 @@ def train(config):
                 optimizer.zero_grad()
                 scheduler.step()
             bar.set_postfix(loss=loss.item()*config.general.accumulation_steps, epoch=epoch, lr=scheduler.get_last_lr())
-            if (step+1) % config.general.logging_per_steps == 0:
-                torch.save(model.state_dict(), f"{config.path.ckpt}/{config.general.model_type}_{epoch}.bin")
-            
+            if step % config.general.save_per_steps == 0:
+                path = f"{config.path.ckpt}/{config.general.model_type}_epoch={epoch}_step={step}.bin"
+                save(path=path, optimizer=optimizer, model=model)
+                
+            if (step+1) % config.general.logging_per_steps == 0:            
                 print("### start validate ")
                 valid_mrrs, valid_losses = [], []
 
@@ -260,7 +262,16 @@ def train(config):
                 )
                 
                 model.train()
-        
+
+def save(path, optimizer, model):
+    state_dict = {
+        "model":model.state_dict(),
+        "optimizer":optimizer.state_dict()
+    }
+    
+    torch.save(state_dict ,path)
+    print(f'saved state dict to {path}')
+
 def calculate_mrr(pair):
     return mrr_score(*pair)
 

@@ -112,7 +112,14 @@ def init_model_and_tokenizer(config):
             os.path.join(config.path.pretrained_dir,'envibert_tokenizer.py')) \
                 .load_module().RobertaTokenizer(config.path.pretrained_dir)
         plm = RobertaModel.from_pretrained(config.path.pretrained_dir)
-    elif config.general.plm == "xlmr":
+        
+    elif config.general.plm == "xlm-roberta-base":
+        tokenizer = AutoTokenizer.from_pretrained(
+            'xlm-roberta-base', cache_dir=config.path.pretrained_dir, use_auth_token=AUTH_TOKEN)
+        plm = AutoModel.from_pretrained(
+            "xlm-roberta-base", cache_dir=config.path.pretrained_dir, use_auth_token=AUTH_TOKEN)
+        
+    elif config.general.plm == "vi-mrc-base":
         tokenizer = AutoTokenizer.from_pretrained(
             'nguyenvulebinh/vi-mrc-base', cache_dir=config.path.pretrained_dir, use_auth_token=AUTH_TOKEN)
         plm = AutoModel.from_pretrained(
@@ -120,7 +127,6 @@ def init_model_and_tokenizer(config):
     
     model = Dual_Model(
         max_length=config.general.max_length, 
-        batch_size=config.general.batch_size,
         device=config.general.device,
         tokenizer=tokenizer, model=plm)
     
@@ -179,13 +185,9 @@ def prepare_dataloader(config, tokenizer):
 def train(config):
     init_distributed()
     if is_main_process():
-        writer = init_directories_and_logger(config)        
+        writer = init_directories_and_logger(config)   
+             
     model, tokenizer = init_model_and_tokenizer(config)
-    model = model.cuda()
-    
-    local_rank = int(os.environ['LOCAL_RANK'])
-    model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], find_unused_parameters=True)
-
     train_loader, valid_loader, test_loader = prepare_dataloader(config=config, tokenizer=tokenizer)
     print("num_train_sample: ", len(train_loader))
     print("num_valid_sample: ", len(valid_loader))
@@ -193,7 +195,16 @@ def train(config):
     
     total = len(train_loader)
     num_train_steps = int(len(train_loader) * config.general.epoch / config.general.accumulation_steps)
+    
+    model = model.cuda()
     optimizer, scheduler = optimizer_scheduler(model, num_train_steps)
+    if os.path.exists(config.path.warm_up):
+        state_dict = torch.load(config.path.warm_up)
+        model.load_state_dict(state_dict["model"])
+        optimizer.load_state_dict(state_dict["optimizer"])
+        print(f"loaded model and optimizer state dict from {config.path.warm_up}")
+
+    model = nn.parallel.DistributedDataParallel(model, device_ids=[int(os.environ['LOCAL_RANK'])], find_unused_parameters=True)
     scaler = torch.cuda.amp.GradScaler(enabled=True)
     
     print("### start training")
@@ -241,9 +252,11 @@ def train(config):
                     "total":total,
                 }
                 print("log: ", message)
-                
+            if is_main_process() and step % config.general.save_per_steps == 0:
+                path = f"{config.path.ckpt}/{config.general.model_type}_epoch={epoch}_step={step}.bin"
+                save(path=path, optimizer=optimizer, model=model)
+   
             if is_main_process() and (step + 1) % config.general.evaluate_per_step == 0:
-                torch.save(model.state_dict(), f"{config.path.ckpt}/{config.general.model_type}_{epoch}.bin")
                 print("### start validate ")
                 valid_mrrs, valid_losses = [], []
 
@@ -331,7 +344,16 @@ def train(config):
                     global_step=step
                 )
             step += 1
-        
+
+def save(path, optimizer, model):
+    state_dict = {
+        "model":model.module.state_dict(),
+        "optimizer":optimizer.state_dict()
+    }
+    
+    torch.save(state_dict ,path)
+    print(f'saved state dict to {path}')
+
 def calculate_mrr(pair):
     return mrr_score(*pair)
 
