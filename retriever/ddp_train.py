@@ -107,10 +107,11 @@ def init_model_and_tokenizer(config):
     AUTH_TOKEN = "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"
     
     if config.general.plm == "envibert":
-        tokenizer = AutoTokenizer.from_pretrained(
-            'nguyenvulebinh/envibert', cache_dir=config.path.pretrained_dir, use_auth_token=AUTH_TOKEN)
-        plm = AutoModel.from_pretrained(
-            "nguyenvulebinh/envibert", cache_dir=config.path.pretrained_dir, use_auth_token=AUTH_TOKEN)
+        tokenizer = SourceFileLoader(
+            "envibert.tokenizer", 
+            os.path.join(config.path.pretrained_dir,'envibert_tokenizer.py')) \
+                .load_module().RobertaTokenizer(config.path.pretrained_dir)
+        plm = RobertaModel.from_pretrained(config.path.pretrained_dir)
         
     elif config.general.plm == "xlm-roberta-base":
         tokenizer = AutoTokenizer.from_pretrained(

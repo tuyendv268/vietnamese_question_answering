@@ -13,7 +13,7 @@ general:
   save_per_steps: 50000
   evaluate_per_step: 50000
   # envibert / xlm-roberta-base / vi-mrc-base
-  plm: vi-mrc-base
+  plm: envibert
   accumulation_steps: 1
 
 path: 
