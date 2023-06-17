@@ -1,5 +1,5 @@
 general:
-  batch_size: 1
+  batch_size: 2
   device: cpu
   mode: train
   epoch: 8
@@ -13,8 +13,8 @@ general:
   save_per_steps: 50000
   evaluate_per_step: 50000
   # envibert / xlm-roberta-base / vi-mrc-base
-  plm: xlm-roberta-base
-  accumulation_steps: 8
+  plm: vi-mrc-base
+  accumulation_steps: 1
 
 path: 
   pretrained_dir: ../pretrained
