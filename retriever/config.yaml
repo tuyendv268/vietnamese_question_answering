@@ -18,9 +18,9 @@ general:
 
 path: 
   pretrained_dir: ../pretrained
-  train_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/val/data.data
-  test_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/val/data.data
-  val_data: /home/tuyendv/Desktop/mbf_ir/reranker/data/val/data.data
+  train_data: data/val/data.data
+  test_data: data/val/data.data
+  val_data: data/val/data.data
   # pretrained_dir: /content/drive/MyDrive/pretrained
   # train_data: /content/vietnamese_question_answering/data/train/data.data
   # test_data: /content/vietnamese_question_answering/data/test/data.data

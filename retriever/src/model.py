@@ -27,23 +27,22 @@ class Dual_Model(nn.Module):
         
         self.model = model
         
-        total_layer = len(self.model.encoder.layer)
-        num_freeze_layer = int(2*total_layer/3)
-        print(f"freezing {num_freeze_layer} layer")
-        modules = [self.model.embeddings, self.model.encoder.layer[:num_freeze_layer]]
+        # total_layer = len(self.model.encoder.layer)
+        # num_freeze_layer = int(2*total_layer/3)
+        # print(f"freezing {num_freeze_layer} layer")
+        # modules = [self.model.embeddings, self.model.encoder.layer[:num_freeze_layer]]
         
-        for module in modules:
-            for param in module.parameters():
-                param.requires_grad = False
-                
+        # for module in modules:
+        #     for param in module.parameters():
+        #         param.requires_grad = False
+        # for name, state_dict in self.model.named_parameters():
+        #     print(name, state_dict.requires_grad)
         self.tokenizer = tokenizer
-        self.dropout = nn.Dropout(droprate)
         
     def forward(self, ids, masks):
         output = self.model(input_ids=ids, attention_mask=masks)
         
         output = output.last_hidden_state[:, 0]
-        output = self.dropout(output)
         
         return output
     

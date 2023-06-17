@@ -146,11 +146,11 @@ class QA_Dataset(Dataset):
             contexts.append(context["passage_text"])
             index+=1
         
-        # hard coding :))
-        positive_sample = contexts[positive_index]
-        contexts.remove(positive_sample)
-        positive_index = 0
-        contexts.insert(positive_index, positive_sample)
+        # # hard coding :))
+        # positive_sample = contexts[positive_index]
+        # contexts.remove(positive_sample)
+        # positive_index = 0
+        # contexts.insert(positive_index, positive_sample)
 
         return self._parse_sample(
             query=query,

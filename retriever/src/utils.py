@@ -79,8 +79,8 @@ def optimizer_scheduler(model, num_train_steps):
             },
         ]
 
-    optimizer = Adam(optimizer_parameters, lr=5e-6, betas=(0.9, 0.999))
-    scheduler = lr_scheduler.LinearLR(optimizer, start_factor=1.0, end_factor=0.01, total_iters=num_train_steps)
+    optimizer = Adam(optimizer_parameters, lr=4e-5, betas=(0.9, 0.999))
+    scheduler = lr_scheduler.LinearLR(optimizer, start_factor=1.0, end_factor=0.025, total_iters=num_train_steps)
     return optimizer, scheduler
 
 def norm_text(text):

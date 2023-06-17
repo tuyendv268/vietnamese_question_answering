@@ -10,7 +10,7 @@ general:
   max_length: 384
   n_worker: 1
   logging_per_steps: 1000
-  save_per_steps: 1
+  save_per_steps: 10000
   evaluate_per_step: 10000
   # envibert
   plm: xlmr
