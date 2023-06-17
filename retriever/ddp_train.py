@@ -211,8 +211,8 @@ def train(config):
     for epoch in range(config.general.epoch):
         model.train()
         train_losses = []
-        bar = tqdm(enumerate(train_loader), total=len(train_loader))
-        for _, data in bar:
+        # bar = tqdm(enumerate(train_loader), total=len(train_loader))
+        for _, data in enumerate(train_loader):
             contexts_ids = data["context_ids"].cuda()
             query_ids = data["query_ids"].cuda()
             query_masks = data["query_masks"].cuda()
@@ -235,7 +235,7 @@ def train(config):
 
             train_losses.append(loss.item() * config.general.accumulation_steps)
             _temp = np.mean(np.array(train_losses))
-            bar.set_postfix(mean_loss=_temp, loss=loss.item()*config.general.accumulation_steps, epoch=epoch, lr=scheduler.get_last_lr())
+            # bar.set_postfix(mean_loss=_temp, loss=loss.item()*config.general.accumulation_steps, epoch=epoch, lr=scheduler.get_last_lr())
             if (step + 1) % config.general.accumulation_steps == 0:
                 scaler.step(optimizer)
                 optimizer.zero_grad()
@@ -261,8 +261,8 @@ def train(config):
 
                 with torch.no_grad():
                     model.eval()
-                    _bar = tqdm(enumerate(valid_loader), total=len(valid_loader))
-                    for _, data in _bar:
+                    # _bar = tqdm(enumerate(valid_loader), total=len(valid_loader))
+                    for _, data in enumerate(valid_loader):
                         contexts_ids = data["context_ids"].cuda()
                         query_ids = data["query_ids"].cuda()
                         query_masks = data["query_masks"].cuda()
@@ -284,15 +284,15 @@ def train(config):
                         pair = [[label, pred] for label, pred in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]
                         valid_mrrs += pair  
                         valid_losses.append(val_loss.item())
-                        _bar.set_postfix(loss=val_loss.item(), epoch=epoch)
+                        # _bar.set_postfix(loss=val_loss.item(), epoch=epoch)
                     model.train()
                         
                 print("### start testing ")
                 with torch.no_grad():
                     test_mrrs, test_losses = [], []
                     model.eval()
-                    _bar = tqdm(enumerate(test_loader), total=len(test_loader))
-                    for _, data in _bar:
+                    # _bar = tqdm(enumerate(test_loader), total=len(test_loader))
+                    for _, data in enumerate(test_loader):
                         contexts_ids = data["context_ids"].cuda()
                         query_ids = data["query_ids"].cuda()
                         query_masks = data["query_masks"].cuda()
@@ -315,7 +315,7 @@ def train(config):
                         pair = [[label, pred] for label, pred in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]
                         test_mrrs += pair
                         test_losses.append(test_loss.item())
-                        _bar.set_postfix(loss=test_loss.item(), epoch=epoch)
+                        # _bar.set_postfix(loss=test_loss.item(), epoch=epoch)
                     model.train()
                     
                 valid_mrrs = list(map(calculate_mrr, valid_mrrs))
