@@ -11,6 +11,7 @@ import torch.nn as nn
 from transformers import RobertaModel
 from transformers import AutoModel, AutoConfig
 from transformers import AutoTokenizer
+from torchmetrics.functional import pairwise_cosine_similarity
 
 from src.dataset import QA_Dataset
 from src.dataset import (
@@ -19,32 +20,75 @@ from src.dataset import (
 )
 
 class Dual_Model(nn.Module):
-    def __init__(self, model, tokenizer, max_length=384, droprate=0.1, batch_size=16, device="cpu"):
+    def __init__(self, model, tokenizer, max_length=384, droprate=0.1, device="cpu"):
         super(Dual_Model, self).__init__()
         self.max_length = max_length
-        self.batch_size = batch_size
         self.device = device
-        
-        self.model = model
-        
-        # total_layer = len(self.model.encoder.layer)
-        # num_freeze_layer = int(2*total_layer/3)
-        # print(f"freezing {num_freeze_layer} layer")
-        # modules = [self.model.embeddings, self.model.encoder.layer[:num_freeze_layer]]
-        
-        # for module in modules:
-        #     for param in module.parameters():
-        #         param.requires_grad = False
-        # for name, state_dict in self.model.named_parameters():
-        #     print(name, state_dict.requires_grad)
         self.tokenizer = tokenizer
         
-    def forward(self, ids, masks):
-        output = self.model(input_ids=ids, attention_mask=masks)
+        self.model = model
+        # self.freeze(n_layer=10)
+        self.linear = nn.Linear(768, 768)
+        torch.nn.init.xavier_uniform_(self.linear.weight)
+
+    def freeze(self, n_layer):
+        num_freeze_layer = n_layer
+        print(f"freezing {num_freeze_layer} layer")
+        modules = [self.model.embeddings, self.model.encoder.layer[:num_freeze_layer]]
         
+        for module in modules:
+            for param in module.parameters():
+                param.requires_grad = False
+        # for name, state_dict in self.model.named_parameters():
+        #     print(name, state_dict.requires_grad)
+            
+    def encode_query(self, query_ids, query_masks):
+        output = self.model(input_ids=query_ids, attention_mask=query_masks)
         output = output.last_hidden_state[:, 0]
+        output = self.linear(output)
         
         return output
+    
+    def encode_passage(self, contexts_ids, context_masks):
+        output = self.model(input_ids=contexts_ids, attention_mask=context_masks)
+        output = output.last_hidden_state[:, 0]
+        output = self.linear(output)
+        
+        return output
+    
+    def forward(self, contexts_ids, context_masks, query_ids, query_masks, labels, masks):
+        query_embeddings = self.encode_query(query_ids=query_ids, query_masks=query_masks)
+        context_embeddings = self.encode_passage(contexts_ids=contexts_ids, context_masks=context_masks)
+        
+        loss, logits, labels = self.pairwise_cosine(
+            labels=labels,
+            query_embeddings=query_embeddings,
+            context_embeddings=context_embeddings,
+            masks=masks,
+            temperature=1
+        )
+        
+        return loss, logits, labels
+    
+    def pairwise_cosine(self, labels, query_embeddings, context_embeddings, masks, temperature=1):
+        batch_size, n_passage_per_query = labels.shape[0], labels.shape[1]
+        assert labels[:,0].sum() == batch_size
+
+        logits = pairwise_cosine_similarity(query_embeddings, context_embeddings)
+        labels = torch.arange(0, batch_size, device=logits.device) * n_passage_per_query
+        
+        loss = self.contrastive_loss(labels, logits, masks, temperature=temperature) 
+        labels = torch.nn.functional.one_hot(labels, num_classes=n_passage_per_query*batch_size)
+        
+        return loss, logits, labels
+    
+    def contrastive_loss(self, labels, logits, masks, temperature=1):
+        logits = logits/temperature
+        logits = torch.masked_fill(input=logits, mask=~masks.flatten(), value=-1000)
+        loss = torch.nn.functional.cross_entropy(logits, labels)
+
+        return loss
+
     
     @torch.no_grad()
     def extract_query_embedding(self, ids, masks):

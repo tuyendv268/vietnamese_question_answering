@@ -118,13 +118,11 @@ class QA_Dataset(Dataset):
                 mask_idx = random.randint(1, len(query) - 1)
                 query[mask_idx] = self.tokenizer.mask_token_id
             
-            # print(self.tokenizer.decode(query))
             for index in range(len(contexts)):
                 num_mask = 12 if len(contexts[index]) > 96 else 6
                 for _ in range(num_mask):
                     mask_idx = random.randint(1, len(contexts[index]) - 1)
                     contexts[index][mask_idx] = self.tokenizer.mask_token_id
-                    # print(self.tokenizer.decode(contexts[index]))
         
         return {
             "positive_index": positive_index,
@@ -146,11 +144,11 @@ class QA_Dataset(Dataset):
             contexts.append(context["passage_text"])
             index+=1
         
-        # # hard coding :))
-        # positive_sample = contexts[positive_index]
-        # contexts.remove(positive_sample)
-        # positive_index = 0
-        # contexts.insert(positive_index, positive_sample)
+        # hard coding :))
+        positive_sample = contexts[positive_index]
+        contexts.remove(positive_sample)
+        positive_index = 0
+        contexts.insert(positive_index, positive_sample)
 
         return self._parse_sample(
             query=query,

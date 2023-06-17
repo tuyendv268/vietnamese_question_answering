@@ -14,7 +14,6 @@ from transformers import AutoModel
 from transformers import AutoTokenizer
 import torch.distributed as dist
 from torch import nn
-from src.loss import Loss
 
 from src.utils import (
     load_data,
@@ -192,7 +191,6 @@ def train(config):
     print("num_valid_sample: ", len(valid_loader))
     print("num_test_sample: ", len(test_loader))
     
-    loss_func = Loss()
     total = len(train_loader)
     num_train_steps = int(len(train_loader) * config.general.epoch / config.general.accumulation_steps)
     optimizer, scheduler = optimizer_scheduler(model, num_train_steps)
@@ -211,22 +209,18 @@ def train(config):
             masks = data["masks"].cuda()
             labels = data["labels"].cuda()
             context_masks = data["context_masks"].cuda()
+            
             with torch.cuda.amp.autocast(dtype=torch.float16):
-                context_embeddings = model(
-                    ids=contexts_ids, 
-                    masks=context_masks)
-                
-                query_embeddings = model(
-                    ids=query_ids, 
-                    masks=query_masks)
-                
-                loss, logits = loss_func.caculate_cosin_loss(
-                    labels=labels,
-                    query_embeddings=query_embeddings,
-                    context_embeddings=context_embeddings,
+                loss, logits, labels = model(
+                    contexts_ids=contexts_ids,
+                    query_ids=query_ids,
+                    query_masks=query_masks,
+                    context_masks=context_masks,
+                    labels=labels, 
                     masks=masks,
-                ) 
+                    )
                 loss /= config.general.accumulation_steps
+                
             scaler.scale(loss).backward()
 
             train_losses.append(loss.item() * config.general.accumulation_steps)
@@ -264,27 +258,21 @@ def train(config):
                         labels = data["labels"].cuda()
                         context_masks = data["context_masks"].cuda()
                         with torch.cuda.amp.autocast(dtype=torch.float16):
-                            context_embeddings = model(
-                                ids=contexts_ids, 
-                                masks=context_masks)
-                            
-                            query_embeddings = model(
-                                ids=query_ids, 
-                                masks=query_masks)
-                            
-                            loss, logits = loss_func.caculate_cosin_loss(
-                                labels=labels,
-                                query_embeddings=query_embeddings,
-                                context_embeddings=context_embeddings,
+                            val_loss, logits, labels = model(
+                                contexts_ids=contexts_ids,
+                                query_ids=query_ids,
+                                query_masks=query_masks,
+                                context_masks=context_masks,
+                                labels=labels, 
                                 masks=masks,
-                            )                            
+                                )
                         y_pred = logits
                         y_true = labels
                         
                         pair = [[label, pred] for label, pred in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]
                         valid_mrrs += pair  
-                        valid_losses.append(loss.item())
-                        _bar.set_postfix(loss=loss.item(), epoch=epoch)
+                        valid_losses.append(val_loss.item())
+                        _bar.set_postfix(loss=val_loss.item(), epoch=epoch)
                     model.train()
                         
                 print("### start testing ")
@@ -300,28 +288,22 @@ def train(config):
                         labels = data["labels"].cuda()
                         context_masks = data["context_masks"].cuda()
                         with torch.cuda.amp.autocast(dtype=torch.float16):
-                            context_embeddings = model(
-                                ids=contexts_ids, 
-                                masks=context_masks)
-                            
-                            query_embeddings = model(
-                                ids=query_ids, 
-                                masks=query_masks)
-                            
-                            loss, logits = loss_func.caculate_cosin_loss(
-                                labels=labels,
-                                query_embeddings=query_embeddings,
-                                context_embeddings=context_embeddings,
+                            test_loss, logits, labels = model(
+                                contexts_ids=contexts_ids,
+                                query_ids=query_ids,
+                                query_masks=query_masks,
+                                context_masks=context_masks,
+                                labels=labels, 
                                 masks=masks,
-                            )
-
+                                )
+                            
                         y_pred = logits
                         y_true = labels
                         
                         pair = [[label, pred] for label, pred in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]
                         test_mrrs += pair
-                        test_losses.append(loss.item())
-                        _bar.set_postfix(loss=loss.item(), epoch=epoch)
+                        test_losses.append(test_loss.item())
+                        _bar.set_postfix(loss=test_loss.item(), epoch=epoch)
                     model.train()
                     
                 valid_mrrs = list(map(calculate_mrr, valid_mrrs))

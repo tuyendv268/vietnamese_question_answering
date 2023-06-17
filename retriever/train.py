@@ -12,7 +12,6 @@ from torch.utils.data import DataLoader
 from transformers import RobertaModel
 from transformers import AutoModel
 from transformers import AutoTokenizer
-from src.loss import Loss
 
 from src.utils import (
     load_data,
@@ -61,7 +60,14 @@ def init_model_and_tokenizer(config):
             os.path.join(config.path.pretrained_dir,'envibert_tokenizer.py')) \
                 .load_module().RobertaTokenizer(config.path.pretrained_dir)
         plm = RobertaModel.from_pretrained(config.path.pretrained_dir)
-    elif config.general.plm == "xlmr":
+        
+    elif config.general.plm == "xlm-roberta-base":
+        tokenizer = AutoTokenizer.from_pretrained(
+            'xlm-roberta-base', cache_dir=config.path.pretrained_dir, use_auth_token=AUTH_TOKEN)
+        plm = AutoModel.from_pretrained(
+            "xlm-roberta-base", cache_dir=config.path.pretrained_dir, use_auth_token=AUTH_TOKEN)
+        
+    elif config.general.plm == "vi-mrc-base":
         tokenizer = AutoTokenizer.from_pretrained(
             'nguyenvulebinh/vi-mrc-base', cache_dir=config.path.pretrained_dir, use_auth_token=AUTH_TOKEN)
         plm = AutoModel.from_pretrained(
@@ -69,7 +75,6 @@ def init_model_and_tokenizer(config):
     
     model = Dual_Model(
         max_length=config.general.max_length, 
-        batch_size=config.general.batch_size,
         device=config.general.device,
         tokenizer=tokenizer, model=plm).to(device)
     
@@ -134,7 +139,6 @@ def train(config):
     total = len(train_loader)
     num_train_steps = int(len(train_loader) * config.general.epoch / config.general.accumulation_steps)
     optimizer, scheduler = optimizer_scheduler(model, num_train_steps)
-    loss_func = Loss()
     
     print("### start training")
     step = 0
@@ -150,23 +154,18 @@ def train(config):
             labels = data["labels"].to(device)
             context_masks = data["context_masks"].to(device)
             
-            context_embeddings = model(
-                ids=contexts_ids, 
-                masks=context_masks)
-            
-            query_embeddings = model(
-                ids=query_ids, 
-                masks=query_masks)
-                        
-            loss, logits = loss_func.caculate_cosin_loss(
-                labels=labels,
-                query_embeddings=query_embeddings,
-                context_embeddings=context_embeddings,
+            loss, logits, labels = model(
+                contexts_ids=contexts_ids,
+                query_ids=query_ids,
+                query_masks=query_masks,
+                context_masks=context_masks,
+                labels=labels, 
                 masks=masks,
-            )            
+                )
+                                    
             train_losses.append(loss.item())
             
-            loss /= config.general.accumulation_steps
+            loss = loss / config.general.accumulation_steps
             loss.backward()
             step += 1
             
@@ -183,8 +182,7 @@ def train(config):
 
                 with torch.no_grad():
                     model.eval()
-                    bar = tqdm(enumerate(valid_loader), total=len(valid_loader))
-                    for _, data in bar:
+                    for _, data in enumerate(valid_loader):
                         contexts_ids = data["context_ids"].to(device)
                         query_ids = data["query_ids"].to(device)
                         query_masks = data["query_masks"].to(device)
@@ -192,34 +190,27 @@ def train(config):
                         labels = data["labels"].to(device)
                         context_masks = data["context_masks"].to(device)
                         
-                        context_embeddings = model(
-                            ids=contexts_ids, 
-                            masks=context_masks)
-                        
-                        query_embeddings = model(
-                            ids=query_ids, 
-                            masks=query_masks)
-                        
-                        loss, logits = loss_func.caculate_cosin_loss(
-                            labels=labels,
-                            query_embeddings=query_embeddings,
-                            context_embeddings=context_embeddings,
+                        loss, logits, labels = model(
+                            contexts_ids=contexts_ids,
+                            query_ids=query_ids,
+                            query_masks=query_masks,
+                            context_masks=context_masks,
+                            labels=labels, 
                             masks=masks,
-                        ) 
+                            )
+                                    
                         y_pred = logits
                         y_true = labels
                         
                         pair = [[label, pred] for label, pred in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]
                         valid_mrrs += pair  
                         valid_losses.append(loss.item())
-                        bar.set_postfix(loss=loss.item(), epoch=epoch)
                         
                 print("### start testing ")
                 with torch.no_grad():
                     test_mrrs, test_losses = [], []
                     model.eval()
-                    bar = tqdm(enumerate(test_loader), total=len(test_loader))
-                    for _, data in bar:
+                    for _, data in enumerate(test_loader):
                         contexts_ids = data["context_ids"].to(device)
                         query_ids = data["query_ids"].to(device)
                         query_masks = data["query_masks"].to(device)
@@ -227,27 +218,21 @@ def train(config):
                         labels = data["labels"].to(device)
                         context_masks = data["context_masks"].to(device)
                         
-                        context_embeddings = model(
-                            ids=contexts_ids, 
-                            masks=context_masks)
-                        
-                        query_embeddings = model(
-                            ids=query_ids, 
-                            masks=query_masks)
-                        
-                        loss, logits = loss_func.caculate_cosin_loss(
-                            labels=labels,
-                            query_embeddings=query_embeddings,
-                            context_embeddings=context_embeddings,
+                        loss, logits, labels = model(
+                            contexts_ids=contexts_ids,
+                            query_ids=query_ids,
+                            query_masks=query_masks,
+                            context_masks=context_masks,
+                            labels=labels, 
                             masks=masks,
-                        ) 
+                            )
+                                    
                         y_pred = logits
                         y_true = labels
                         
                         pair = [[label, pred] for label, pred in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]
                         test_mrrs += pair
                         test_losses.append(loss.item())
-                        bar.set_postfix(loss=loss.item(), epoch=epoch)
                     
                 valid_mrrs = list(map(calculate_mrr, valid_mrrs))
                 valid_mrrs = np.array(valid_mrrs).mean()
