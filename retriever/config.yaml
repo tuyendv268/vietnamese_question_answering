@@ -2,7 +2,7 @@ general:
   batch_size: 2
   device: cpu
   mode: train
-  epoch: 2
+  epoch: 8
   # cross = dual
   model_type: "dual"
   valid_size: 0.01
@@ -10,8 +10,8 @@ general:
   max_length: 384
   n_worker: 0
   logging_per_steps: 1000
-  save_per_steps: 5000
-  evaluate_per_step: 5000
+  save_per_steps: 10000
+  evaluate_per_step: 10000
   # envibert / xlm-roberta-base / vi-mrc-base
   plm: xlm-roberta-base
   accumulation_steps: 8

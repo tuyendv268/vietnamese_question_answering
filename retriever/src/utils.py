@@ -71,7 +71,7 @@ def optimizer_scheduler(model, num_train_steps):
     optimizer_parameters = [
             {
                 "params": [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)],
-                "weight_decay": 0.001,
+                "weight_decay": 0.01,
             },
             {
                 "params": [p for n, p in param_optimizer if any(nd in n for nd in no_decay)],
@@ -79,8 +79,8 @@ def optimizer_scheduler(model, num_train_steps):
             },
         ]
 
-    optimizer = Adam(optimizer_parameters, lr=4e-5, betas=(0.9, 0.999))
-    scheduler = lr_scheduler.LinearLR(optimizer, start_factor=1.0, end_factor=0.025, total_iters=num_train_steps)
+    optimizer = Adam(optimizer_parameters, lr=1e-4, betas=(0.9, 0.999))
+    scheduler = lr_scheduler.LinearLR(optimizer, start_factor=1.0, end_factor=0.1, total_iters=num_train_steps)
     return optimizer, scheduler
 
 def norm_text(text):
