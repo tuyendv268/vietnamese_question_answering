@@ -100,12 +100,10 @@ class QA_Dataset(Dataset):
     def __len__(self):
         return len(self.data)
     
-    def _parse_sample(self, query, positive_index, contexts):  
+    def _parse_sample(self, query, contexts, labels):  
         normed_query = norm_text(query) 
         normed_contexts = [norm_text(text) for text in contexts]
-        
-        positive_index = torch.tensor(positive_index)
-        
+                
         contexts = self.tokenizer(
             normed_contexts, max_length=self.max_length, truncation=True)["input_ids"]
 
@@ -123,38 +121,28 @@ class QA_Dataset(Dataset):
                 for _ in range(num_mask):
                     mask_idx = random.randint(1, len(contexts[index]) - 1)
                     contexts[index][mask_idx] = self.tokenizer.mask_token_id
-        
+
+        labels = torch.Tensor(labels)
         return {
-            "positive_index": positive_index,
             "contexts":contexts,
-            "query": query
+            "query": query,
+            "labels":labels
         }
        
     def __getitem__(self, index):
         sample = self.data[index]      
         query = sample["query"]
         
-        contexts = []
-        positive_index = None
-        index = 0
-        for context in sample["passages"]:
-            if context["is_selected"] == 1:
-                assert positive_index is None
-                positive_index=index
-            contexts.append(context["passage_text"])
-            index+=1
-        
-        # hard coding :))
-        positive_sample = contexts[positive_index]
-        contexts.remove(positive_sample)
-        positive_index = 0
-        contexts.insert(positive_index, positive_sample)
+        assert len(sample["passages"]) == 1
+        contexts = [passage["passage_text"] for passage in sample["passages"]]
+        labels = [passage["is_selected"] for passage in sample["passages"]]
 
         return self._parse_sample(
             query=query,
-            positive_index=positive_index,
-            contexts=contexts
+            contexts=contexts,
+            labels=labels
         )
+        
     def dual_collate_fn(self, batch):
         _context_ids = [
             [
@@ -169,7 +157,7 @@ class QA_Dataset(Dataset):
             for sample in batch 
         ]
         
-        _labels = [sample["positive_index"] for sample in batch]
+        _labels = [sample["labels"] for sample in batch]
         
         ### padding to query
         max_length = max([len(sample) for sample in _query_ids])        
@@ -211,13 +199,11 @@ class QA_Dataset(Dataset):
             context_ids.append(torch.stack(_temp_context_ids, dim=0))
             context_masks.append(torch.stack(_temp_context_masks, dim=0))
             
-        _labels = torch.tensor(_labels)
-        
+        labels = torch.tensor(_labels).long()
         context_ids = torch.vstack(context_ids).long()
         context_masks = torch.vstack(context_masks)
         query_ids = torch.vstack(query_ids).long()
         query_masks = torch.vstack(query_masks)
-        labels = torch.nn.functional.one_hot(_labels, max_context)
         masks = torch.vstack(masks).bool()
         
         return {

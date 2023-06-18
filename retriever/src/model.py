@@ -70,15 +70,15 @@ class Dual_Model(nn.Module):
         
         return loss, logits, labels
 
-    def dot_product(self, labels, query_embeddings, context_embeddings, masks, temperature=8):
-        batch_size, n_passage_per_query = labels.shape[0], labels.shape[1]
-        assert labels[:,0].sum() == batch_size
+    def dot_product(self, labels, query_embeddings, context_embeddings, masks, temperature=1):
+        # logits = torch.matmul(query_embeddings, context_embeddings.transpose(0, 1))
+        logits = pairwise_cosine_similarity(query_embeddings, context_embeddings)
+        logits = torch.sigmoid(torch.diagonal(logits).unsqueeze(-1))
         
-        logits = torch.matmul(query_embeddings, context_embeddings.transpose(0, 1))
-        labels = torch.arange(0, batch_size, device=logits.device) * n_passage_per_query
-        
-        loss = self.contrastive_loss(labels, logits, masks, temperature=temperature) 
-        labels = torch.nn.functional.one_hot(labels, num_classes=n_passage_per_query*batch_size)
+        logits = torch.cat([1-logits, logits], dim=1)
+        labels = torch.nn.functional.one_hot(labels, 2)
+
+        loss = torch.nn.functional.binary_cross_entropy(logits, labels.float())
         
         return loss, logits, labels
     
@@ -94,13 +94,6 @@ class Dual_Model(nn.Module):
         
         return loss, logits, labels
     
-    def contrastive_loss(self, labels, logits, masks, temperature=1):
-        logits = logits/temperature
-        logits = torch.masked_fill(input=logits, mask=~masks.flatten(), value=-1000)
-        loss = torch.nn.functional.cross_entropy(logits, labels)
-
-        return loss
-
     
     @torch.no_grad()
     def extract_query_embedding(self, ids, masks):

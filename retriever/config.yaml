@@ -1,5 +1,5 @@
 general:
-  batch_size: 2
+  batch_size: 8
   device: cpu
   mode: train
   epoch: 8
@@ -18,9 +18,9 @@ general:
 
 path: 
   pretrained_dir: ../pretrained
-  train_data: data/val/data.data
-  test_data: data/val/data.data
-  val_data: data/val/data.data
+  train_data: /mnt/sda2/datas/mbf_ir/retriever/data/bin-data/test/data.data
+  test_data: /mnt/sda2/datas/mbf_ir/retriever/data/bin-data/test/data.data
+  val_data: /mnt/sda2/datas/mbf_ir/retriever/data/bin-data/test/data.data
   # pretrained_dir: /content/drive/MyDrive/pretrained
   # train_data: /content/vietnamese_question_answering/data/train/data.data
   # test_data: /content/vietnamese_question_answering/data/test/data.data
