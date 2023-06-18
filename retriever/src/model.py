@@ -45,6 +45,7 @@ class Dual_Model(nn.Module):
     def encode_query(self, query_ids, query_masks):
         output = self.model(input_ids=query_ids, attention_mask=query_masks)
         output = output.last_hidden_state[:, 0]
+        # output = torch.randn(query_ids.size(0), 768)
         output = self.linear(output)
         
         return output
@@ -52,6 +53,7 @@ class Dual_Model(nn.Module):
     def encode_passage(self, contexts_ids, context_masks):
         output = self.model(input_ids=contexts_ids, attention_mask=context_masks)
         output = output.last_hidden_state[:, 0]
+        # output = torch.randn(contexts_ids.size(0), 768)
         output = self.linear(output)
         
         return output
@@ -60,17 +62,17 @@ class Dual_Model(nn.Module):
         query_embeddings = self.encode_query(query_ids=query_ids, query_masks=query_masks)
         context_embeddings = self.encode_passage(contexts_ids=contexts_ids, context_masks=context_masks)
         
-        loss, logits, labels = self.dot_product(
+        loss, logits, labels = self.loss(
             labels=labels,
             query_embeddings=query_embeddings,
             context_embeddings=context_embeddings,
             masks=masks,
-            temperature=8
+            temperature=1,
         )
         
         return loss, logits, labels
 
-    def dot_product(self, labels, query_embeddings, context_embeddings, masks, temperature=1):
+    def loss(self, labels, query_embeddings, context_embeddings, masks, temperature=1):
         # logits = torch.matmul(query_embeddings, context_embeddings.transpose(0, 1))
         logits = pairwise_cosine_similarity(query_embeddings, context_embeddings)
         logits = torch.sigmoid(torch.diagonal(logits).unsqueeze(-1))
@@ -79,18 +81,6 @@ class Dual_Model(nn.Module):
         labels = torch.nn.functional.one_hot(labels, 2)
 
         loss = torch.nn.functional.binary_cross_entropy(logits, labels.float())
-        
-        return loss, logits, labels
-    
-    def pairwise_cosine(self, labels, query_embeddings, context_embeddings, masks, temperature=1):
-        batch_size, n_passage_per_query = labels.shape[0], labels.shape[1]
-        assert labels[:,0].sum() == batch_size
-
-        logits = pairwise_cosine_similarity(query_embeddings, context_embeddings)
-        labels = torch.arange(0, batch_size, device=logits.device) * n_passage_per_query
-        
-        loss = self.contrastive_loss(labels, logits, masks, temperature=temperature) 
-        labels = torch.nn.functional.one_hot(labels, num_classes=n_passage_per_query*batch_size)
         
         return loss, logits, labels
     

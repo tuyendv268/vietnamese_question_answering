@@ -10,8 +10,8 @@ general:
   max_length: 384
   n_worker: 0
   logging_per_steps: 5000
-  save_per_steps: 50000
-  evaluate_per_step: 50000
+  save_per_steps: 5000000
+  evaluate_per_steps: 50
   # envibert / xlm-roberta-base / vi-mrc-base
   plm: envibert
   accumulation_steps: 1

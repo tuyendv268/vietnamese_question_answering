@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 from transformers import RobertaModel
 from transformers import AutoModel
 from transformers import AutoTokenizer
+from sklearn.metrics import f1_score
 import torch.distributed as dist
 from torch import nn
 
@@ -256,9 +257,9 @@ def train(config):
                 path = f"{config.path.ckpt}/{config.general.model_type}_epoch={epoch}_step={step}.bin"
                 save(path=path, optimizer=optimizer, model=model)
    
-            if is_main_process() and (step + 1) % config.general.evaluate_per_step == 0:
+            if is_main_process() and (step + 1) % config.general.evaluate_per_steps == 0:
                 print("### start validate ")
-                valid_mrrs, valid_losses = [], []
+                val_preds, val_labels, val_losses = [], [], []
 
                 with torch.no_grad():
                     model.eval()
@@ -270,6 +271,7 @@ def train(config):
                         masks = data["masks"].cuda()
                         labels = data["labels"].cuda()
                         context_masks = data["context_masks"].cuda()
+                        
                         with torch.cuda.amp.autocast(dtype=torch.float16):
                             val_loss, logits, labels = model(
                                 contexts_ids=contexts_ids,
@@ -279,18 +281,19 @@ def train(config):
                                 labels=labels, 
                                 masks=masks,
                                 )
-                        y_pred = logits
-                        y_true = labels
-                        
-                        pair = [[label, pred] for label, pred in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]
-                        valid_mrrs += pair  
-                        valid_losses.append(val_loss.item())
-                        # _bar.set_postfix(loss=val_loss.item(), epoch=epoch)
+                        val_preds.append(logits)
+                        val_labels.append(labels)
+                        val_losses.append(val_loss.item())
                     model.train()
-                        
+                    
+                val_preds = torch.cat(val_preds, dim=0).argmax(dim=1)
+                val_labels = torch.cat(val_labels, dim=0).argmax(dim=1)
+                val_acc = f1_score(val_labels.numpy(), val_preds.numpy())
+                    
+                print(f"#### val_acc: {val_acc}, false: {torch.sum(val_labels==0)}, true: {torch.sum(val_labels==1)}")
                 print("### start testing ")
                 with torch.no_grad():
-                    test_mrrs, test_losses = [], []
+                    test_preds, test_labels, test_losses = [], [], []
                     model.eval()
                     # _bar = tqdm(enumerate(test_loader), total=len(test_loader))
                     for _, data in enumerate(test_loader):
@@ -310,28 +313,28 @@ def train(config):
                                 masks=masks,
                                 )
                             
-                        y_pred = logits
-                        y_true = labels
-                        
-                        pair = [[label, pred] for label, pred in zip(y_true.cpu().detach().numpy(), y_pred.cpu().detach().numpy())]
-                        test_mrrs += pair
+                        test_preds.append(logits)
+                        test_labels.append(labels)
                         test_losses.append(test_loss.item())
                         # _bar.set_postfix(loss=test_loss.item(), epoch=epoch)
                     model.train()
                     
                 valid_mrrs = list(map(calculate_mrr, valid_mrrs))
-                valid_mrrs = np.array(valid_mrrs).mean()
-                        
-                test_mrrs = list(map(calculate_mrr, test_mrrs))
-                test_mrrs = np.array(test_mrrs).mean()
+                test_preds = torch.cat(test_preds, dim=0).argmax(dim=1)
+                test_labels = torch.cat(test_labels, dim=0).argmax(dim=1)
+                test_acc = f1_score(test_labels.numpy(), test_preds.numpy())
                 
-                print(f"mrr_valid: {valid_mrrs} mrr_test: {test_mrrs}")
-                print(f"train_loss: {np.mean(np.array(train_losses))}, valid_loss: {np.mean(np.array(valid_losses))} test_losses: {np.mean(np.array(test_losses))}")
+                print(f"#### test_acc: {test_acc}, false: {torch.sum(test_labels==0)}, true: {torch.sum(test_labels==1)}")
+
+                print(f"#### train_loss: {np.mean(np.array(train_losses))}")
+                print(f"#### val_loss: {np.mean(np.array(val_losses))}")
+                print(f"#### test_loss: {np.mean(np.array(test_losses))}")
+                
                 writer.add_scalars(
                     "mrr",
                     {
-                        "test_mrrs": test_mrrs,
-                        "valid_mrrs":valid_mrrs},
+                        "test_acc": test_acc,
+                        "val_acc": val_acc},
                     global_step=step
                 )
                 
@@ -340,7 +343,7 @@ def train(config):
                     {
                         "train_loss": np.mean(np.array(train_losses)),
                         "test_losses": np.mean(np.array(test_losses)),
-                        "valid_loss": np.mean(np.array(valid_losses))},
+                        "valid_loss": np.mean(np.array(val_losses))},
                     global_step=step
                 )
             step += 1
