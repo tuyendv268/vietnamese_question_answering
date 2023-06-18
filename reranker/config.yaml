@@ -1,5 +1,5 @@
 general:
-  batch_size: 2
+  batch_size: 1
   device: cpu
   mode: train
   epoch: 2
@@ -18,14 +18,14 @@ general:
 
 path: 
   pretrained_dir: ../pretrained
-  train_data: data/val/data.data
-  test_data: data/val/data.data
-  val_data: data/val/data.data
+  train_data: /mnt/sda2/datas/mbf_ir/reranker/data/test/data.data
+  test_data: /mnt/sda2/datas/mbf_ir/reranker/data/vnexpress/data.data
+  val_data: /mnt/sda2/datas/mbf_ir/reranker/data/test/data.data
   # pretrained_dir: /content/drive/MyDrive/pretrained
   # train_data: /content/vietnamese_question_answering/data/train/data.data
   # test_data: /content/vietnamese_question_answering/data/test/data.data
   # val_data: /content/vietnamese_question_answering/data/test/data.data
-  warm_up: checkpoints/cross_1.bin
+  warm_up: outputs/checkpoints/cross_epoch=1_step=79999.bin
   ckpt: outputs/checkpoints
   log: outputs/logs
   bm25: outputs/bm25
