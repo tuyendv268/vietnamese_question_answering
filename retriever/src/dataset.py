@@ -136,6 +136,9 @@ class QA_Dataset(Dataset):
         assert len(sample["passages"]) == 1
         contexts = [passage["passage_text"] for passage in sample["passages"]]
         labels = [passage["is_selected"] for passage in sample["passages"]]
+        
+        if len(contexts[0].split()) > 256:
+            return self.__getitem__(random.randint(0, self.__len__()))
 
         return self._parse_sample(
             query=query,
