@@ -5,3 +5,4 @@ __pycache__
 outputs
 *.zip
 checkpoints
+retriever/notebooks
