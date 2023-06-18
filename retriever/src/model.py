@@ -80,7 +80,7 @@ class Dual_Model(nn.Module):
         logits = torch.cat([1-logits, logits], dim=1)
         labels = torch.nn.functional.one_hot(labels, 2)
 
-        loss = torch.nn.functional.binary_cross_entropy(logits, labels.float())
+        loss = torch.nn.functional.binary_cross_entropy_with_logits(logits, labels.float())
         
         return loss, logits, labels
     
