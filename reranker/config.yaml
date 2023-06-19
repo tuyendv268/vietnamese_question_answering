@@ -2,7 +2,7 @@ general:
   batch_size: 4
   device: cpu
   mode: train
-  epoch: 2
+  epoch: 1
   # cross = dual
   model_type: "cross"
   valid_size: 0.01
