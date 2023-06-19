@@ -6,3 +6,4 @@ outputs
 *.zip
 checkpoints
 retriever/notebooks
+ckpts

@@ -20,7 +20,7 @@ from src.dataset import (
 )
 
 class Dual_Model(nn.Module):
-    def __init__(self, model, tokenizer, max_length=384, droprate=0.1, device="cpu"):
+    def __init__(self, model, tokenizer, max_length=512, droprate=0.1, device="cpu"):
         super(Dual_Model, self).__init__()
         self.max_length = max_length
         self.device = device

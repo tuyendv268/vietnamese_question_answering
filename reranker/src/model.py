@@ -13,16 +13,18 @@ from src.dataset import (
 AUTH_TOKEN = "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"
 
 class Cross_Model(nn.Module):
-    def __init__(self, model, tokenizer, max_length=384, droprate=0.2, batch_size=16, device="cpu"):
+    def __init__(self, model, tokenizer, max_length=512, droprate=0.1, batch_size=16, device="cpu"):
         super(Cross_Model, self).__init__()
         self.max_length = max_length
         self.batch_size = batch_size
         
         self.model = model
         self.device = device
+        
         total_layer = len(self.model.encoder.layer)
-        num_freeze_layer = int(2*total_layer/3)
+        num_freeze_layer = int(total_layer/2)
         print(f"freezing {num_freeze_layer} layer")
+        
         modules = [self.model.embeddings, self.model.encoder.layer[:num_freeze_layer]]
         
         for module in modules:
@@ -30,7 +32,6 @@ class Cross_Model(nn.Module):
                 param.requires_grad = False
                 
         self.tokenizer = tokenizer
-        
         self.dropout = nn.Dropout(droprate)
         self.fc = nn.Linear(768, 1)
         self.cre = torch.nn.CrossEntropyLoss()
@@ -42,7 +43,6 @@ class Cross_Model(nn.Module):
         embedding = self.dropout(out)
         logits = self.fc(embedding)
         if labels is not None:
-            # logits = logits.reshape(labels.size(0), labels.size(1))
             logits = logits.view(labels.size(0), labels.size(1))
             return logits, self.loss(labels=labels, logits=logits, context_masks=context_masks)
         

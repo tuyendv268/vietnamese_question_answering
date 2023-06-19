@@ -151,6 +151,7 @@ def train(config):
         bar = tqdm(enumerate(train_loader), total=len(train_loader))
         for _, data in bar:
             inputs_ids = data["inputs_ids"].to(device)
+
             masks = data["masks"].to(device)
             labels = data["labels"].to(device)
             context_masks = data["context_masks"].to(device)
@@ -160,12 +161,11 @@ def train(config):
                 context_masks=context_masks,
                 masks=masks, 
                 labels=labels)
-                            
             train_losses.append(loss.item())
             
             loss /= config.general.accumulation_steps
             loss.backward()
-
+            
             if (step + 1) % config.general.accumulation_steps == 0:
                 optimizer.step()
                 optimizer.zero_grad()
@@ -194,6 +194,7 @@ def train(config):
                             context_masks=context_masks,
                             masks=masks, 
                             labels=labels)
+                        
 
                         y_pred = torch.softmax(logits, dim=0).squeeze(1)
                         y_true = labels

@@ -100,7 +100,7 @@ class Infer_QA_Dataset(Dataset):
         return outputs
 
 class Infer_Dual_QA_Dataset(Dataset):
-    def __init__(self, df, tokenizer, max_length=384):
+    def __init__(self, df, tokenizer, max_length=512):
         self.df = df
         self.max_length = max_length
         self.tokenizer = tokenizer
@@ -123,7 +123,7 @@ class Infer_Dual_QA_Dataset(Dataset):
         return self._parse_sample(text=text)
 
 class QA_Dataset(Dataset):
-    def __init__(self, df, tokenizer, max_length=384, batch_size=32, mode="train"):
+    def __init__(self, df, tokenizer, max_length=512, batch_size=32, mode="train"):
         self.df = df
         self.max_length = max_length
         self.tokenizer = tokenizer

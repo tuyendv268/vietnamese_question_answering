@@ -30,7 +30,7 @@ def init_model_and_tokenizer(config):
     model = Cross_Model(
         max_length=config.general.max_length, 
         batch_size=config.general.batch_size,
-        device=config.general.device,
+        device="cuda",
         tokenizer=tokenizer, model=plm)
     
     if os.path.exists(config.path.warm_up):
@@ -43,7 +43,7 @@ def init_model_and_tokenizer(config):
 
 config = OmegaConf.load("config.yaml")
 model, tokenizer = init_model_and_tokenizer(config)
-model = model.half()
+model = model.cuda()
 model.eval()
 
 bm25_model = BM25()
@@ -53,7 +53,8 @@ def infer(query):
     bm25_result = bm25_model.search(query=query, topk=20)
     docs = [sample[1] for sample in bm25_result]
     
-    scores, ranks = model.ranking(query=query, texts=docs)
+    with torch.cuda.amp.autocast(dtype=torch.float16):
+        scores, ranks = model.ranking(query=query, texts=docs)
 
     print("QUERY: ", query)    
     print("MODEL_SCORES: ", scores)

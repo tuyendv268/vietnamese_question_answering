@@ -139,13 +139,10 @@ def init_model_and_tokenizer(config):
 
 
 def prepare_dataloader(config, tokenizer):
-    # train_data = load_data(config.path.train_data)
     test_data = config.path.test_data
     train_data = config.path.train_data
     val_data = config.path.val_data
-    
-    # train_data, val_data = train_test_split(train_data, test_size=config.general.valid_size, random_state=42)
-    
+        
     train_dataset = QA_Dataset(
         train_data, mode="train",
         tokenizer=tokenizer, 
@@ -162,7 +159,6 @@ def prepare_dataloader(config, tokenizer):
         collate_fn=collate_fn,
         sampler=sampler,
         num_workers=config.general.n_worker, drop_last=True)
-    
     
     valid_dataset = QA_Dataset(
         val_data, mode="val",
@@ -220,7 +216,6 @@ def train(config):
         train_losses = []
         
         train_loader.sampler.set_epoch(epoch)
-        # bar = tqdm(enumerate(train_loader), total=len(train_loader), position=get_rank())
         for _, data in enumerate(train_loader):
             try:
                 inputs_ids = data["inputs_ids"].cuda()
@@ -261,7 +256,6 @@ def train(config):
                     "total":total,
                 }
                 print("log: ", message)
-            # bar.set_postfix(loss=loss.item(), epoch=epoch, id=get_rank(), lr=scheduler.get_last_lr())
             
             if is_main_process() and (step + 1) % config.general.evaluate_per_step == 0:
                 print("start evaluate")
@@ -295,7 +289,11 @@ def train(config):
                             torch.cuda.empty_cache()
                             print("Error in validation: ", e)
                             continue
-                        # val_bar.set_postfix(loss=loss.item(), epoch=epoch)
+                model.train()
+                valid_mrrs = list(map(calculate_mrr, valid_mrrs))
+                valid_mrrs = np.array(valid_mrrs).mean()
+                print(f"mrr_valid: {valid_mrrs}")
+
                         
                 with torch.no_grad():
                     test_mrrs, test_losses = [], []
@@ -324,15 +322,11 @@ def train(config):
                             torch.cuda.empty_cache()
                             print("Error in testing: ", e)
                             continue
-                        # test_bar.set_postfix(loss=loss.item(), epoch=epoch)
-                    
-                valid_mrrs = list(map(calculate_mrr, valid_mrrs))
-                valid_mrrs = np.array(valid_mrrs).mean()
-                                
+                model.train()                     
                 test_mrrs = list(map(calculate_mrr, test_mrrs))
                 test_mrrs = np.array(test_mrrs).mean()
                 
-                print(f"mrr_valid: {valid_mrrs} mrr_test: {test_mrrs}")
+                print(f"mrr_valid: {valid_mrrs}")
                 print(f"train_loss: {np.mean(np.array(train_losses))}, valid_loss: {np.mean(np.array(valid_losses))} test_losses: {np.mean(np.array(test_losses))}")
                 writer.add_scalars(
                     "mrr",
@@ -358,7 +352,6 @@ def save(path, optimizer, model):
         "model":model.module.state_dict(),
         "optimizer":optimizer.state_dict()
     }
-    
     torch.save(state_dict ,path)
     print(f'saved state dict to {path}')
     
@@ -367,7 +360,6 @@ def load(path, optimizer, model):
     model_state_dict = state_dict["model"]
     optimizer_state_dict = state_dict["optimizer"]
     
-    # model_state_dict = {"module.".join(key.split("module.")[1:]):value for key, value in model_state_dict.items()}
     model.load_state_dict(model_state_dict)
     optimizer.load_state_dict(optimizer_state_dict)
     

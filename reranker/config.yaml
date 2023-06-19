@@ -1,5 +1,5 @@
 general:
-  batch_size: 2
+  batch_size: 4
   device: cpu
   mode: train
   epoch: 2
@@ -7,18 +7,18 @@ general:
   model_type: "cross"
   valid_size: 0.01
   test_size: 0.1
-  max_length: 384
-  n_worker: 0
+  max_length: 512
+  n_worker: 2
   logging_per_steps: 1000
-  save_per_steps: 5000
-  evaluate_per_step: 5000
+  save_per_steps: 20000
+  evaluate_per_step: 20000
   # envibert / xlm-roberta-base / vi-mrc-base
-  plm: xlm-roberta-base
-  accumulation_steps: 8
+  plm: vi-mrc-base
+  accumulation_steps: 1
 
 path: 
   pretrained_dir: ../pretrained
-  train_data: data/val/data.data
+  train_data: /mnt/sda2/datas/mbf_ir/reranker/data/val/data.data
   test_data: data/val/data.data
   val_data: data/val/data.data
   # pretrained_dir: /content/drive/MyDrive/pretrained
