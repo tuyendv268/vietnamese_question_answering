@@ -124,7 +124,7 @@ def prepare_dataloader(config, tokenizer):
         max_length=config.general.max_length)
     
     test_loader = DataLoader(
-        test_dataset, batch_size=config.general.batch_size, 
+        test_dataset, batch_size=2, 
         collate_fn=collate_fn, 
         num_workers=0, shuffle=False, pin_memory=True, drop_last=False)
     
