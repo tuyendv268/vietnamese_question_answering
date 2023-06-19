@@ -45,10 +45,10 @@ class Cross_Model(nn.Module):
             logits = logits.view(labels.size(0), labels.size(1))
             return logits, self.loss(labels=labels, logits=logits, context_masks=context_masks)
         
-        return logits
+        return logits, embedding
     
-    def loss(self, labels, logits, context_masks):
-        exp = torch.exp(logits)
+    def loss(self, labels, logits, context_masks, temperature=0.1):
+        exp = torch.exp(logits/temperature)
         exp = torch.masked_fill(input=exp, mask=~context_masks, value=0)
         loss = -torch.log(torch.sum(torch.mul(exp, labels), dim=1) / torch.sum(exp, dim=1))
         loss = torch.mean(loss)

@@ -282,6 +282,8 @@ def calculate_mrr(pair):
     return mrr_score(*pair)
 
 def mrr_score(y_true, y_score):
+    # y_true = [1, 0, 0 ,0]
+    # y_score = [0.6, 0.1, 0.2, 0.1]
     order = np.argsort(y_score)[::-1]
     y_true = np.take(y_true, order)
     rr_score = y_true / (np.arange(len(y_true)) + 1)
