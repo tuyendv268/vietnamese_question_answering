@@ -67,10 +67,10 @@ def prepare_dataloader(config, tokenizer):
 def load(path, model, optimizer=None):
     state_dict = torch.load(path, map_location="cpu")
     
-    model.model.load_state_dict(state_dict["state_dict"]["model"])
-    model.linear.load_state_dict(state_dict["state_dict"]["linear"])
+    # model.model.load_state_dict(state_dict["state_dict"]["model"])
+    # model.linear.load_state_dict(state_dict["state_dict"]["linear"])
     
-    # model.load_state_dict(model_state_dict)
+    model.load_state_dict(state_dict["model"])
     print(f"loaded model and optimizer state dict from {path}")
     
     # if optimizer is not None:

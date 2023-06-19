@@ -32,7 +32,7 @@ class Cross_Model(nn.Module):
         self.tokenizer = tokenizer
         
         self.dropout = nn.Dropout(droprate)
-        self.linear = nn.Linear(768, 1)
+        self.fc = nn.Linear(768, 1)
         self.cre = torch.nn.CrossEntropyLoss()
 
     def forward(self, ids, masks, labels=None, context_masks=None):
@@ -40,7 +40,7 @@ class Cross_Model(nn.Module):
         out = out.last_hidden_state[:, 0]
         
         embedding = self.dropout(out)
-        logits = self.linear(embedding)
+        logits = self.fc(embedding)
         if labels is not None:
             logits = logits.view(labels.size(0), labels.size(1))
             return logits, self.loss(labels=labels, logits=logits, context_masks=context_masks)
