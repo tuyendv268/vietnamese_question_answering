@@ -6,12 +6,12 @@ import openai
 import gradio as gr
 import torch
 from omegaconf import OmegaConf
-from model import Cross_Model
+from demo.reranker.model import Cross_Model
 from importlib.machinery import SourceFileLoader
 from transformers import RobertaModel
 from transformers import AutoModel
 from transformers import AutoTokenizer
-from bm25 import BM25
+from demo.retriever.bm25 import BM25
 
 def init_model_and_tokenizer(config):
     AUTH_TOKEN = "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"

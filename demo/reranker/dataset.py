@@ -7,7 +7,7 @@ from typing import List
 import torch
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer
-from utils import norm_text
+from reranker.utils import norm_text
 from transformers import AutoModel, AutoConfig
 
 import json

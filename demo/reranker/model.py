@@ -4,9 +4,9 @@ import pandas as pd
 
 import torch
 import torch.nn as nn
-from utils import norm_text
+from reranker.utils import norm_text
 
-from dataset import (
+from reranker.dataset import (
     Infer_Pairwise_Dataset
 )
 
@@ -18,18 +18,8 @@ class Cross_Model(nn.Module):
         
         self.model = model
         self.device = device
-        total_layer = len(self.model.encoder.layer)
-        num_freeze_layer = int(2*total_layer/3)
-        print(f"freezing {num_freeze_layer} layer")
-        modules = [self.model.embeddings, self.model.encoder.layer[:num_freeze_layer]]
-        
-        for module in modules:
-            for param in module.parameters():
-                param.requires_grad = False
-                
         self.tokenizer = tokenizer
         
-        self.dropout = nn.Dropout(droprate)
         self.fc = nn.Linear(768, 1)
         self.cre = torch.nn.CrossEntropyLoss()
 
@@ -37,11 +27,7 @@ class Cross_Model(nn.Module):
         out = self.model(input_ids=ids,
                          attention_mask=masks)
         out = out.last_hidden_state[:, 0]
-        embedding = self.dropout(out)
-        logits = self.fc(embedding)
-        if labels is not None:
-            logits = logits.reshape(labels.size(0), labels.size(1))
-            return logits, self.loss(labels=labels, logits=logits, context_masks=context_masks)
+        logits = self.fc(out)
         
         return logits
     
@@ -63,7 +49,7 @@ class Cross_Model(nn.Module):
         
         valid_loader = DataLoader(
             valid_dataset, batch_size=self.batch_size, collate_fn=valid_dataset.infer_collate_fn,
-            num_workers=0, shuffle=False, pin_memory=True)
+            num_workers=0, shuffle=False, pin_memory=False)
         preds = []
         with torch.no_grad():
             bar = tqdm(enumerate(valid_loader))
@@ -75,6 +61,5 @@ class Cross_Model(nn.Module):
         
         scores = preds.cpu()
         ranks = scores.argsort(descending=True)
-        print("model score: ", preds)
-        print("rank: ", ranks)
+
         return scores, ranks

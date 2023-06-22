@@ -5,7 +5,7 @@ import os
 from gensim.corpora import Dictionary
 from gensim.models import TfidfModel, OkapiBM25Model
 from gensim.similarities import SparseMatrixSimilarity
-from utils import norm_text
+from retriever.utils import norm_text
 
 class BM25:
     def load(self, path):
@@ -61,7 +61,7 @@ class BM25:
             _score = scores[index]
             _text = self.passages.passage_text.values[index]
             
-            result.append([_score, _text])
+            result.append(_text)
         return result
 
     
@@ -83,17 +83,13 @@ class BM25:
             
         result = pd.DataFrame(result, columns=["id", "retrieval_score", "retrieval_rank", "retrieval_text"])
         return result
-        
-
-if __name__ == "__main__":
-    from utils import norm_question, norm_text
-    bm25_model = BM25("outputs/bm25")
-    query = "mô tả về tổng công ty mobifone"
     
-    question = norm_question(query)
-    tokenized_query = norm_text(query)
-    top_n, bm25_scores  = bm25_model.get_text_topk(tokenized_query, topk=5)
-
-    for t in top_n:
-        print(t, end="\n\n")
-    print(bm25_scores)
+    
+if __name__ == "__main__":
+    bm25 = BM25()
+    path = "/mnt/sda2/datas/mbf_ir/demo/inputs/passage.txt"
+    with open(path, "r", encoding="utf-8") as f:
+        passages = f.readlines()
+        passages = pd.DataFrame(passages, columns=["passage_text"])
+    bm25.train(passages)
+    bm25.save("/mnt/sda2/datas/mbf_ir/demo/checkpoints/bm25")

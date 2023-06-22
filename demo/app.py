@@ -1,65 +1,44 @@
 import os
-from tqdm.auto import tqdm
-tqdm.pandas()
-from argparse import ArgumentParser
-import openai
 import gradio as gr
 import torch
 from omegaconf import OmegaConf
-from model import Cross_Model
-from importlib.machinery import SourceFileLoader
-from transformers import RobertaModel
-from transformers import AutoModel
-from transformers import AutoTokenizer
-from bm25 import BM25
 
-def init_model_and_tokenizer(config):
-    AUTH_TOKEN = "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"
-    if config.general.plm == "envibert":
-        tokenizer = SourceFileLoader(
-            "envibert.tokenizer", 
-            os.path.join(config.path.pretrained_dir,'envibert_tokenizer.py')) \
-                .load_module().RobertaTokenizer(config.path.pretrained_dir)
-        plm = RobertaModel.from_pretrained(config.path.pretrained_dir)
-    elif config.general.plm == "xlmr":
-        tokenizer = AutoTokenizer.from_pretrained(
-            'nguyenvulebinh/vi-mrc-base', cache_dir=config.path.pretrained_dir, use_auth_token=AUTH_TOKEN)
-        plm = AutoModel.from_pretrained(
-            "nguyenvulebinh/vi-mrc-base", cache_dir=config.path.pretrained_dir, use_auth_token=AUTH_TOKEN)
+from retriever.bm25 import BM25
+from retriever.retriever import Retriever
+from reranker.reranker import Reranker
+
+def infer(query, topk=20):
+    bm25_passages = bm25_model.search(query=query, topk=topk)
     
-    model = Cross_Model(
-        max_length=config.general.max_length, 
-        batch_size=config.general.batch_size,
-        device=config.general.device,
-        tokenizer=tokenizer, model=plm)
+    # print("###### BM25 RESULT: \n")
+    # for index, passage in enumerate(bm25_passages):
+    #     print(f"###TOP_{index}: {passage}")
+    #     print(">>>>>>>>>>>>>>>>>>>>>>>>>>>")
     
-    if os.path.exists(config.path.warm_up):
-        state_dict = torch.load(config.path.warm_up, map_location="cpu")
-        # state_dict = {"module.".join(key.split("module.")[1:]):value for key, value in state_dict.items()}
-        model.load_state_dict(state_dict["model"])
-        print(f"load model state dict from {config.path.warm_up}")
-        
-    return model, tokenizer
-
-config = OmegaConf.load("config.yaml")
-model, tokenizer = init_model_and_tokenizer(config)
-model = model.half()
-model.eval()
-
-bm25_model = BM25()
-bm25_model.load("checkpoints/bm25")
-
-def infer(query):
-    bm25_result = bm25_model.search(query=query, topk=20)
-    docs = [sample[1] for sample in bm25_result]
+    # print("###### DUAL RESULT: \n")
+    retriever_passages, retriever_scores = retriever.get_topk_passages(query=query, topk=topk)
+    # for index, passage in enumerate(retriever_passages):
+    #     print(f"###TOP_{index}: {passage}")
+    #     print(">>>>>>>>>>>>>>>>>>>>>>>>>>>")
     
-    scores, ranks = model.ranking(query=query, texts=docs)
+    retrieval_result = []
+    
+    for i in bm25_passages:
+        if i.strip("\n") not in retrieval_result:
+            retrieval_result.append(i.strip("\n"))
+            
+    for i in retriever_passages:
+        if i.strip("\n") not in retrieval_result:
+            retrieval_result.append(i.strip("\n"))
+            
+    print("TOTAL PASSAGES: ", len(retrieval_result))
+    scores, ranks = reranker.reranking(query=query, passages=retrieval_result)
 
+    top_k = [retrieval_result[i] for i in ranks]
+    results = ""
+    print("###### CROSS RESULT: \n")
     print("QUERY: ", query)    
     print("MODEL_SCORES: ", scores)
-
-    top_k = [docs[i] for i in ranks]
-    results = ""
     for index, context in enumerate(top_k):
         print(f"###TOP_{index}: {context}")
         print(">>>>>>>>>>>>>>>>>>>>>>>>>>>")
@@ -70,6 +49,22 @@ def infer(query):
 
 
 if __name__ == "__main__":
+    config = OmegaConf.load("config.yaml")
+    
+    bm25_model = BM25()
+    bm25_model.load(config.bm25.ckpt_path)
+    
+    retriever = Retriever(
+        index_dir=config.retriever.index_dir,
+        pretrained_dir=config.retriever.pretrained_dir,
+        vncorenlp_dir=config.retriever.vncorenlp_dir
+        )
+    
+    reranker = Reranker(
+        ckpt_path=config.reranker.ckpt_path,
+        pretrained_dir=config.reranker.pretrained_dir
+    )
+    
     gr.Interface(
         fn=infer,
         inputs=[

@@ -1,33 +1,19 @@
-general:
-  batch_size: 2
-  device: cpu
-  mode: train
-  epoch: 2
-  # cross = dual
-  model_type: "cross"
-  valid_size: 0.01
-  test_size: 0.1
-  max_length: 512
-  n_worker: 1
-  save_ckpt_per_n_epoch: 1 
-  logging_per_steps: 10
-  evaluate_per_step: 10000
-  # envibert
+reranker:
   plm: xlmr
-  accumulation_steps: 8
+  batch_size: 2
+  max_length: 512
+  pretrained_dir: /mnt/sda2/datas/mbf_ir/pretrained
+  ckpt_path: /mnt/sda2/datas/mbf_ir/ckpts/reranker/cross_epoch=1_step=79999.bin
+  device: cpu
 
-path: 
-  pretrained_dir: ../pretrained
-  train_data: data/val/data.data
-  test_data: data/val/data.data
-  val_data: data/val/data.data
+retriever:
+  plm: sbert
+  max_length: 256
+  index_dir: /mnt/sda2/datas/mbf_ir/demo/checkpoints/retriever
+  ckpt_path: /mnt/sda2/datas/mbf_ir/pretrained
+  vncorenlp_dir: /home/tuyendv/Desktop/retriever/vncorenlp
+  pretrained_dir: /mnt/sda2/datas/mbf_ir/pretrained
 
-  warm_up: /mnt/sda2/datas/mbf_ir/demo/checkpoints/reranker/cross_epoch=1_step=79999.bin
-  ckpt: outputs/checkpoints
-  log: outputs/logs
-  bm25: outputs/bm25
-  embedd_model: outputs/checkpoints/dual_0.bin
+bm25:
+  ckpt_path: /mnt/sda2/datas/mbf_ir/demo/checkpoints/bm25
 
-data_augmentation_args:
-  augmentation_percent: 0.6
-  mask_percent: 0.05
